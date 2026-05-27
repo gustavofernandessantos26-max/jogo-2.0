@@ -3,288 +3,172 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Subway Surfers - Advanced Clone</title>
+    <title>Tela de Login</title>
     <style>
-        body {
+        /* Reset básico e tipografia */
+        * {
             margin: 0;
             padding: 0;
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
+            box-sizing: border-box;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: white;
         }
-        canvas {
-            background-color: #8b9bb4;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-            border-radius: 12px;
-            border: 4px solid #fff;
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
-        .painel {
-            margin-top: 15px;
+
+        /* Container do formulário */
+        .login-container {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 15px 25px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-container h2 {
             text-align: center;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 10px 20px;
-            border-radius: 8px;
+            color: #333;
+            margin-bottom: 30px;
+            font-weight: 600;
         }
-        kbd {
-            background-color: #fff;
-            color: #000;
-            padding: 2px 6px;
-            border-radius: 4px;
+
+        /* Grupos de input */
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 5px rgba(102, 126, 234, 0.5);
+        }
+
+        /* Opções extras (Lembrar-me e Esqueci a senha) */
+        .options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+
+        .options a {
+            color: #667eea;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .options a:hover {
+            color: #764ba2;
+        }
+
+        /* Botão de Submit */
+        .btn-login {
+            width: 100%;
+            padding: 12px;
+            background-color: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
             font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
         }
+
+        .btn-login:hover {
+            background-color: #764ba2;
+        }
+
+        /* Mensagem de erro/sucesso */
+        #mensagem {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .sucesso { color: #28a745; }
+        .erro { color: #dc3545; }
     </style>
 </head>
 <body>
 
-    <canvas id="gameCanvas" width="360" height="600"></canvas>
-    
-    <div class="painel">
-        <p>Moedas: <span id="coinUI" style="color: gold; font-weight: bold;">0</span> | 
-           Movimento: <kbd>⬅️</kbd> <kbd>➡️</kbd> | Pulo: <kbd>⬆️</kbd></p>
+    <div class="login-container">
+        <h2>Bem-vindo de volta</h2>
+        
+        <form id="formLogin">
+            <div class="input-group">
+                <label for="email">E-mail</label>
+                <input type="email" id="email" name="email" placeholder="Digite seu e-mail" required>
+            </div>
+            
+            <div class="input-group">
+                <label for="senha">Senha</label>
+                <input type="password" id="senha" name="senha" placeholder="Digite sua senha" required>
+            </div>
+            
+            <div class="options">
+                <label>
+                    <input type="checkbox" name="lembrar"> Lembrar-me
+                </label>
+                <a href="#">Esqueceu a senha?</a>
+            </div>
+            
+            <button type="submit" class="btn-login">Entrar</button>
+        </form>
+
+        <p id="mensagem"></p>
     </div>
 
     <script>
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
-        const coinUI = document.getElementById("coinUI");
+        const formLogin = document.getElementById('formLogin');
+        const mensagem = document.getElementById('mensagem');
 
-        // Sistema de Jogo
-        const LARGURA_PISTA = canvas.width / 3;
-        let estadoJogo = "inicio"; // inicio, jogando, gameover
-        let moedas = 0;
-        let velocidadePista = 6;
-        let frameCount = 0;
-        let offsetPista = 0; // Para animar o asfalto
+        formLogin.addEventListener('submit', function(event) {
+            // Previne que a página recarregue ao enviar o formulário
+            event.preventDefault();
 
-        // Jogador com Física (Eixo Z para o pulo)
-        const player = {
-            pista: 1, // 0 (Esq), 1 (Centro), 2 (Dir)
-            x: canvas.width / 2,
-            y: canvas.height - 120,
-            z: 0,          // Altura do pulo
-            vz: 0,         // Velocidade vertical
-            gravidade: 1.2,
-            pulando: false,
-            raio: 20
-        };
+            const email = document.getElementById('email').value;
+            const senha = document.getElementById('senha').value;
 
-        // Entidades (Obstáculos e Moedas)
-        let entidades = [];
+            // Mostra a mensagem no bloco
+            mensagem.style.display = 'block';
 
-        // Controles
-        document.addEventListener("keydown", (e) => {
-            if (estadoJogo === "inicio" || estadoJogo === "gameover") {
-                if (e.code === "Space" || e.code === "ArrowUp") iniciarJogo();
-                return;
-            }
-
-            if (e.code === "ArrowLeft" && player.pista > 0) player.pista--;
-            if (e.code === "ArrowRight" && player.pista < 2) player.pista++;
-            if (e.code === "ArrowUp" && !player.pulando) {
-                player.pulando = true;
-                player.vz = 16; // Força do pulo
+            // Simulação de validação simples
+            if (email === "admin@admin.com" && senha === "123456") {
+                mensagem.textContent = "Login efetuado com sucesso! Redirecionando...";
+                mensagem.className = "sucesso";
+                
+                // Limpa os campos após o sucesso
+                formLogin.reset();
+            } else {
+                mensagem.textContent = "E-mail ou senha incorretos. Tente novamente.";
+                mensagem.className = "erro";
             }
         });
-
-        function spawnEntidade() {
-            let pistaSorteada = Math.floor(Math.random() * 3);
-            let tipoSorteio = Math.random();
-            
-            let tipo, emoji, tamanho, alturaZ;
-
-            if (tipoSorteio < 0.3) {
-                // 30% de chance de Moeda
-                tipo = "moeda"; emoji = "🪙"; tamanho = 30; alturaZ = 0;
-            } else if (tipoSorteio < 0.7) {
-                // 40% de chance de Barreira (pode pular)
-                tipo = "barreira"; emoji = "🚧"; tamanho = 40; alturaZ = 15;
-            } else {
-                // 30% de chance de Trem (mortal, não dá pra pular)
-                tipo = "trem"; emoji = "🚆"; tamanho = 55; alturaZ = 100;
-            }
-
-            entidades.push({
-                x: pistaSorteada * LARGURA_PISTA + (LARGURA_PISTA / 2),
-                y: -50,
-                tipo: tipo,
-                emoji: emoji,
-                tamanho: tamanho,
-                alturaZ: alturaZ,
-                ativa: true
-            });
-        }
-
-        function atualizar() {
-            if (estadoJogo !== "jogando") return;
-            frameCount++;
-
-            // Aumenta a velocidade progressivamente
-            if (frameCount % 500 === 0) velocidadePista += 0.5;
-
-            // Animação da pista
-            offsetPista += velocidadePista;
-            if (offsetPista > 60) offsetPista = 0;
-
-            // Spawn de entidades
-            if (frameCount % Math.max(30, 80 - Math.floor(velocidadePista * 2)) === 0) {
-                spawnEntidade();
-            }
-
-            // Física do Jogador (Movimento Suave Horizontal)
-            let destinoX = player.pista * LARGURA_PISTA + (LARGURA_PISTA / 2);
-            player.x += (destinoX - player.x) * 0.25;
-
-            // Física do Jogador (Pulo no Eixo Z)
-            if (player.pulando) {
-                player.z += player.vz;
-                player.vz -= player.gravidade;
-                if (player.z <= 0) {
-                    player.z = 0;
-                    player.pulando = false;
-                }
-            }
-
-            // Atualiza Entidades e Verifica Colisão
-            for (let i = 0; i < entidades.length; i++) {
-                let ent = entidades[i];
-                ent.y += velocidadePista;
-
-                if (ent.ativa) {
-                    // Distância entre jogador e entidade
-                    let distY = Math.abs(player.y - ent.y);
-                    let distX = Math.abs(player.x - ent.x);
-
-                    // Colisão 2D (Eixos X e Y)
-                    if (distX < 25 && distY < 30) {
-                        
-                        if (ent.tipo === "moeda") {
-                            // Coleta moeda
-                            moedas++;
-                            coinUI.innerText = moedas;
-                            ent.ativa = false; // esconde a moeda
-                        } else {
-                            // É obstáculo. Verifica a colisão em 3D (Eixo Z / Altura)
-                            // Se o jogador estiver mais baixo que a altura do obstáculo = BATEU
-                            if (player.z < ent.alturaZ) {
-                                estadoJogo = "gameover";
-                            }
-                        }
-                    }
-                }
-
-                // Remove o que passou da tela
-                if (ent.y > canvas.height + 100) {
-                    entidades.splice(i, 1);
-                    i--;
-                }
-            }
-        }
-
-        function desenhar() {
-            // Fundo (Asfalto)
-            ctx.fillStyle = "#4a4e59";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Desenha as linhas da pista em movimento
-            ctx.strokeStyle = "#ffffff";
-            ctx.lineWidth = 6;
-            ctx.setLineDash([30, 30]); // Tamanho do traço
-            
-            for (let linha = 1; linha < 3; linha++) {
-                ctx.beginPath();
-                // Usa o offset para fazer a linha descer
-                ctx.moveTo(linha * LARGURA_PISTA, -60 + offsetPista); 
-                ctx.lineTo(linha * LARGURA_PISTA, canvas.height + 60);
-                ctx.stroke();
-            }
-            ctx.setLineDash([]); // Reseta estilo de linha
-
-            // Configuração comum para emojis
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-
-            // Desenha as Entidades (Obstáculos e Moedas)
-            for (let ent of entidades) {
-                if (ent.ativa) {
-                    // Sombra do objeto
-                    ctx.fillStyle = "rgba(0,0,0,0.3)";
-                    ctx.beginPath();
-                    ctx.ellipse(ent.x, ent.y + 15, ent.tamanho/2.5, ent.tamanho/5, 0, 0, Math.PI*2);
-                    ctx.fill();
-
-                    // Emoji do objeto
-                    ctx.font = `${ent.tamanho}px Arial`;
-                    ctx.fillText(ent.emoji, ent.x, ent.y);
-                }
-            }
-
-            // Desenha o Jogador
-            if (estadoJogo !== "inicio") {
-                // Sombra do jogador (Fica no chão e diminui conforme ele pula)
-                let tamanhoSombra = Math.max(5, 20 - (player.z / 4));
-                ctx.fillStyle = "rgba(0,0,0,0.4)";
-                ctx.beginPath();
-                ctx.ellipse(player.x, player.y + 20, tamanhoSombra, tamanhoSombra/2, 0, 0, Math.PI*2);
-                ctx.fill();
-
-                // Efeito de corrida (balançar) se não estiver pulando
-                let balancoCorrida = (!player.pulando && estadoJogo === "jogando") ? Math.sin(frameCount * 0.5) * 3 : 0;
-
-                // Desenha o emoji do jogador (Sobe com o eixo Z)
-                // Aumentamos a fonte um pouco com o Z para dar efeito 3D
-                let tamanhoPlayer = 45 + (player.z / 8); 
-                ctx.font = `${tamanhoPlayer}px Arial`;
-                ctx.fillText("🏃‍♂️", player.x, player.y - player.z + balancoCorrida);
-            }
-
-            // Telas de Interface
-            if (estadoJogo === "inicio") {
-                desenharOverlay("SUBWAY CLONE", "Pressione CIMA para Iniciar");
-            } else if (estadoJogo === "gameover") {
-                desenharOverlay("FIM DE JOGO!", `Moedas: ${moedas} - Pressione CIMA`);
-            }
-        }
-
-        function desenharOverlay(titulo, subtitulo) {
-            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            ctx.fillStyle = "#fff";
-            ctx.font = "30px Arial";
-            ctx.fontWeight = "bold";
-            ctx.fillText(titulo, canvas.width / 2, canvas.height / 2 - 20);
-            
-            ctx.fillStyle = "gold";
-            ctx.font = "18px Arial";
-            ctx.fillText(subtitulo, canvas.width / 2, canvas.height / 2 + 20);
-        }
-
-        function iniciarJogo() {
-            estadoJogo = "jogando";
-            moedas = 0;
-            coinUI.innerText = "0";
-            velocidadePista = 6;
-            frameCount = 0;
-            entidades = [];
-            player.pista = 1;
-            player.x = canvas.width / 2;
-            player.z = 0;
-            player.pulando = false;
-        }
-
-        function gameLoop() {
-            atualizar();
-            desenhar();
-            requestAnimationFrame(gameLoop);
-        }
-
-        // Começa o loop
-        gameLoop();
     </script>
 </body>
 </html>
