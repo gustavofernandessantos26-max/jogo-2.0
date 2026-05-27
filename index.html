@@ -3,26 +3,122 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Subway Surfers - Com Marcador de Distância</title>
+    <title>Subway Surfers Clone - Com Login</title>
     <style>
-        body {
+        /* Estilos Globais e Reset */
+        * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
             color: white;
+            overflow: hidden;
         }
+
+        /* ==================== TELA DE LOGIN ==================== */
+        #loginSection {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 380px;
+            text-align: center;
+        }
+
+        #loginSection h2 {
+            margin-bottom: 25px;
+            color: #00ffcc;
+            text-shadow: 0 0 8px rgba(0, 255, 204, 0.3);
+            font-size: 26px;
+            letter-spacing: 1px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #ccc;
+            font-size: 14px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            font-size: 16px;
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #00ffcc;
+            box-shadow: 0 0 8px rgba(0, 255, 204, 0.4);
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 12px;
+            background-color: #00ffcc;
+            color: #111;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 10px;
+        }
+
+        .btn-login:hover {
+            background-color: #00cc99;
+        }
+
+        #mensagemErro {
+            color: #ff4444;
+            font-size: 14px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .dica-login {
+            margin-top: 15px;
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        /* ==================== SEÇÃO DO JOGO ==================== */
+        #gameSection {
+            display: none; /* Escondido inicialmente */
+            flex-direction: column;
+            align-items: center;
+        }
+
         canvas {
             background-color: #8b9bb4;
             box-shadow: 0 10px 30px rgba(0,0,0,0.8);
             border-radius: 12px;
             border: 4px solid #fff;
         }
+
         .painel {
             margin-top: 15px;
             text-align: center;
@@ -30,6 +126,7 @@
             padding: 10px 20px;
             border-radius: 8px;
         }
+
         kbd {
             background-color: #fff;
             color: #000;
@@ -41,26 +138,68 @@
 </head>
 <body>
 
-    <canvas id="gameCanvas" width="360" height="600"></canvas>
-    
-    <div class="painel">
-        <p>Movimento: <kbd>⬅️</kbd> <kbd>➡️</kbd> | Pulo: <kbd>⬆️</kbd> | Reiniciar: <kbd>ESPAÇO</kbd></p>
+    <div id="loginSection">
+        <h2>SURFERS LOGIN</h2>
+        <form id="formLogin">
+            <div class="input-group">
+                <label for="email">E-mail</label>
+                <input type="email" id="email" placeholder="Ex: admin@admin.com" required>
+            </div>
+            <div class="input-group">
+                <label for="senha">Senha</label>
+                <input type="password" id="senha" placeholder="Ex: 123456" required>
+            </div>
+            <button type="submit" class="btn-login">Entrar no Jogo</button>
+        </form>
+        <p id="mensagemErro">Usuário ou senha incorretos!</p>
+        <p class="dica-login">Dica: admin@admin.com | 123456</p>
+    </div>
+
+    <div id="gameSection">
+        <canvas id="gameCanvas" width="360" height="600"></canvas>
+        <div class="painel">
+            <p>Controles: <kbd>⬅️</kbd> <kbd>➡️</kbd> | Pulo: <kbd>⬆️</kbd> | Reiniciar: <kbd>ESPAÇO</kbd></p>
+        </div>
     </div>
 
     <script>
+        // Elementos de tela
+        const loginSection = document.getElementById("loginSection");
+        const gameSection = document.getElementById("gameSection");
+        const formLogin = document.getElementById("formLogin");
+        const mensagemErro = document.getElementById("mensagemErro");
+
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
-        // Sistema de Jogo
+        // Lógica de Autenticação do Login
+        formLogin.addEventListener("submit", function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById("email").value;
+            const senha = document.getElementById("senha").value;
+
+            if (email === "admin@admin.com" && senha === "123456") {
+                // Esconde o Login e Mostra o Jogo
+                loginSection.style.display = "none";
+                gameSection.style.display = "flex";
+                
+                // Inicializa o ciclo do jogo
+                gameLoop();
+            } else {
+                mensagemErro.style.display = "block";
+            }
+        });
+
+        // ==================== CÓDIGO DA LÓGICA DO JOGO ====================
         const LARGURA_PISTA = canvas.width / 3;
         let estadoJogo = "inicio"; // inicio, jogando, gameover
         let moedas = 0;
-        let distancia = 0; // Nova variável de distância
+        let distancia = 0; 
         let velocidadePista = 6;
         let frameCount = 0;
         let offsetPista = 0; 
 
-        // Jogador
         const player = {
             pista: 1, 
             x: canvas.width / 2,
@@ -72,28 +211,29 @@
             raio: 20
         };
 
-        // Entidades (Obstáculos e Moedas)
         let entidades = [];
 
-        // Controles
+        // Captura de Teclado
         document.addEventListener("keydown", (e) => {
-            if (estadoJogo === "inicio" || estadoJogo === "gameover") {
-                if (e.code === "Space" || e.code === "ArrowUp") iniciarJogo();
-                return;
-            }
+            // Só responde aos comandos se a tela do jogo estiver visível
+            if (gameSection.style.display === "flex") {
+                if (estadoJogo === "inicio" || estadoJogo === "gameover") {
+                    if (e.code === "Space" || e.code === "ArrowUp") iniciarJogo();
+                    return;
+                }
 
-            if (e.code === "ArrowLeft" && player.pista > 0) player.pista--;
-            if (e.code === "ArrowRight" && player.pista < 2) player.pista++;
-            if (e.code === "ArrowUp" && !player.pulando) {
-                player.pulando = true;
-                player.vz = 16; 
+                if (e.code === "ArrowLeft" && player.pista > 0) player.pista--;
+                if (e.code === "ArrowRight" && player.pista < 2) player.pista++;
+                if (e.code === "ArrowUp" && !player.pulando) {
+                    player.pulando = true;
+                    player.vz = 16; 
+                }
             }
         });
 
         function spawnEntidade() {
             let pistaSorteada = Math.floor(Math.random() * 3);
             let tipoSorteio = Math.random();
-            
             let tipo, emoji, tamanho, alturaZ;
 
             if (tipoSorteio < 0.3) {
@@ -119,26 +259,20 @@
             if (estadoJogo !== "jogando") return;
             frameCount++;
 
-            // A distância aumenta baseada na velocidade atual da pista
             distancia += velocidadePista * 0.05;
 
-            // Aumenta a velocidade progressivamente
             if (frameCount % 500 === 0) velocidadePista += 0.5;
 
-            // Animação da pista
             offsetPista += velocidadePista;
             if (offsetPista > 60) offsetPista = 0;
 
-            // Spawn de entidades
             if (frameCount % Math.max(30, 80 - Math.floor(velocidadePista * 2)) === 0) {
                 spawnEntidade();
             }
 
-            // Movimento Horizontal do Jogador
             let destinoX = player.pista * LARGURA_PISTA + (LARGURA_PISTA / 2);
             player.x += (destinoX - player.x) * 0.25;
 
-            // Física do Pulo (Eixo Z)
             if (player.pulando) {
                 player.z += player.vz;
                 player.vz -= player.gravidade;
@@ -148,7 +282,6 @@
                 }
             }
 
-            // Atualiza Entidades e Colisões
             for (let i = 0; i < entidades.length; i++) {
                 let ent = entidades[i];
                 ent.y += velocidadePista;
@@ -177,11 +310,9 @@
         }
 
         function desenhar() {
-            // Fundo (Asfalto)
             ctx.fillStyle = "#4a4e59";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Linhas da pista
             ctx.strokeStyle = "#ffffff";
             ctx.lineWidth = 6;
             ctx.setLineDash([30, 30]);
@@ -193,28 +324,22 @@
             }
             ctx.setLineDash([]); 
 
-            // HUD Superior (Placar de Distância e Moedas)
             if (estadoJogo === "jogando") {
                 ctx.textAlign = "left";
                 ctx.textBaseline = "top";
                 ctx.font = "bold 20px 'Segoe UI', Arial";
-                
-                // Caixa de fundo para o HUD ficar legível
                 ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
                 ctx.fillRect(10, 10, 140, 65);
 
-                // Desenha os textos do HUD
                 ctx.fillStyle = "#00ffcc";
                 ctx.fillText(`🏃‍♂️ ${Math.floor(distancia)} m`, 20, 18);
                 ctx.fillStyle = "gold";
                 ctx.fillText(`🪙 ${moedas}`, 20, 44);
             }
 
-            // Configuração para renderizar os elementos centrais
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
 
-            // Desenha as Entidades
             for (let ent of entidades) {
                 if (ent.ativa) {
                     ctx.fillStyle = "rgba(0,0,0,0.3)";
@@ -227,7 +352,6 @@
                 }
             }
 
-            // Desenha o Jogador
             if (estadoJogo !== "inicio") {
                 let tamanhoSombra = Math.max(5, 20 - (player.z / 4));
                 ctx.fillStyle = "rgba(0,0,0,0.4)";
@@ -241,9 +365,8 @@
                 ctx.fillText("🏃‍♂️", player.x, player.y - player.z + balancoCorrida);
             }
 
-            // Telas de Interface Overlays
             if (estadoJogo === "inicio") {
-                desenharOverlay("SUBWAY RUNNER", "Pressione CIMA ou ESPAÇO para Iniciar");
+                desenharOverlay("SUBWAY RUNNER", "Aperte CIMA ou ESPAÇO para iniciar");
             } else if (estadoJogo === "gameover") {
                 desenharOverlay("FIM DE JOGO!", `Recorde: ${Math.floor(distancia)}m | 🪙 ${moedas}`);
             }
@@ -265,7 +388,7 @@
         function iniciarJogo() {
             estadoJogo = "jogando";
             moedas = 0;
-            distancia = 0; // Reseta a distância ao iniciar
+            distancia = 0; 
             velocidadePista = 6;
             frameCount = 0;
             entidades = [];
@@ -280,8 +403,6 @@
             desenhar();
             requestAnimationFrame(gameLoop);
         }
-
-        gameLoop();
     </script>
 </body>
 </html>
