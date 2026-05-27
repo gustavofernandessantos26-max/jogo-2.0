@@ -1,1 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subway Surfers 2D - Clone</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #222;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+            color: white;
+        }
+        canvas {
+            background-color: #555;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            border-radius: 10px;
+        }
+        .instrucoes {
+            margin-top: 15px;
+            text-align: center;
+        }
+        kbd {
+            background-color: #444;
+            padding: 3px 6px;
+            border-radius: 4px;
+            border: 1px solid #777;
+        }
+    </style>
+</head>
+<body>
 
+    <canvas id="gameCanvas" width="360" height="600"></canvas>
+    
+    <div class="instrucoes">
+        <p>Use as setas <kbd>⬅️</kbd> e <kbd>➡️</kbd> para mover e <kbd>⬆️</kbd> para pular.</p>
+        <p>Aperte <strong>ESPAÇO</strong> para reiniciar.</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Configurações do Jogo
+        const LARGURA_PISTA = canvas.width / 3;
+        let gameOver = false;
+        let score = 0;
+        let velocidadeJogo = 5;
+        let frameCount = 0;
+
+        // Jogador
+        const player = {
+            pistaAtual: 1, // 0 = Esquerda, 1 = Centro, 2 = Direita
+            x: LARGURA_PISTA,
+            y: canvas.height - 100,
+            largura: 60,
+            altura: 80,
+            pulando: false,
+            tempoPulo: 0,
+            cor: "#00bfff"
+        };
+
+        // Obstáculos
+        let obstaculos = [];
+
+        // Controle do teclado
+        document.addEventListener("keydown", (e) => {
+            if (gameOver && e.code === "Space") {
+                reiniciarJogo();
+                return;
+            }
+
+            if (!gameOver) {
+                if (e.code === "ArrowLeft" && player.pistaAtual > 0) {
+                    player.pistaAtual--;
+                } else if (e.code === "ArrowRight" && player.pistaAtual < 2) {
+                    player.pistaAtual++;
+                } else if (e.code === "ArrowUp" && !player.pulando) {
+                    pular();
+                }
+            }
+        });
+
+        function pular() {
+            player.pulando = true;
+            player.tempoPulo = 30; // Duração do pulo (em frames)
+            player.cor = "#ffdf00"; // Fica amarelo quando pula (invulnerável)
+        }
+
+        function criarObstaculo() {
+            // Escolhe uma pista aleatória
+            let pista = Math.floor(Math.random() * 3);
+            obstaculos.push({
+                x: pista * LARGURA_PISTA + (LARGURA_PISTA / 2) - 30,
+                y: -1
