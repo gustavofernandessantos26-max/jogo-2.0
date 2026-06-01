@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Subway Surfers Clone - Com Agachamento</title>
+    <title>Subway Surfers Clone - Com Login</title>
     <style>
         /* Estilos Globais e Reset */
         * {
@@ -159,7 +159,7 @@
     <div id="gameSection">
         <canvas id="gameCanvas" width="360" height="600"></canvas>
         <div class="painel">
-            <p>Controles: <kbd>⬅️ / A</kbd> <kbd>➡️ / D</kbd> | Pulo: <kbd>⬆️ / W</kbd> | Agachar: <kbd>⬇️ / S</kbd> | Reiniciar: <kbd>ESPAÇO</kbd></p>
+            <p>Controles: <kbd>⬅️ / A</kbd> <kbd>➡️ / D</kbd> | Pulo: <kbd>⬆️ / W</kbd> | Reiniciar: <kbd>ESPAÇO</kbd></p>
         </div>
     </div>
 
@@ -172,9 +172,10 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
-        // Autenticação
+        // Lógica de Autenticação do Login
         formLogin.addEventListener("submit", function(e) {
             e.preventDefault();
+            
             const email = document.getElementById("email").value;
             const senha = document.getElementById("senha").value;
 
@@ -187,9 +188,9 @@
             }
         });
 
-        // ==================== LÓGICA DO JOGO ====================
+        // ==================== CÓDIGO DA LÓGICA DO JOGO ====================
         const LARGURA_PISTA = canvas.width / 3;
-        let estadoJogo = "inicio"; 
+        let estadoJogo = "inicio"; // inicio, jogando, gameover
         let moedas = 0;
         let distancia = 0; 
         let velocidadePista = 6;
@@ -202,18 +203,17 @@
             y: canvas.height - 120,
             z: 0,          
             vz: 0,         
-            gravidade: 1.0, 
+            gravidade: 1.0, // Ajustado ligeiramente para um pulo mais suave
             pulando: false,
-            agachando: false,       // Estado de agachamento adicionado
-            tempoAgachado: 0        // Temporizador de agachamento adicionado
+            raio: 20
         };
 
         let entidades = [];
 
-        // Captura do Teclado + Correção de Rolagem de Página
+        // Captura de Teclado + Prevenção de rolagem de página
         document.addEventListener("keydown", (e) => {
             if (gameSection.style.display === "flex") {
-                // Bloqueia a rolagem nativa do navegador ao jogar
+                // Evita que a barra de espaço ou setas mexam a página web
                 if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
                     e.preventDefault();
                 }
@@ -225,21 +225,9 @@
 
                 if ((e.code === "ArrowLeft" || e.code === "KeyA") && player.pista > 0) player.pista--;
                 if ((e.code === "ArrowRight" || e.code === "KeyD") && player.pista < 2) player.pista++;
-                
-                // Comando de Pulo
                 if ((e.code === "ArrowUp" || e.code === "KeyW") && !player.pulando) {
-                    // Cancelar agachamento se pular
-                    player.agachando = false;
-                    player.tempoAgachado = 0;
-                    
                     player.pulando = true;
-                    player.vz = 15; 
-                }
-
-                // Mapeamento das teclas de Agachar (ArrowDown ou KeyS)
-                if ((e.code === "ArrowDown" || e.code === "KeyS") && !player.pulando) {
-                    player.agachando = true;
-                    player.tempoAgachado = 25; // Duração do agachamento em frames (~0.4 segundos)
+                    player.vz = 15; // Impulso inicial do pulo
                 }
             }
         });
@@ -247,17 +235,14 @@
         function spawnEntidade() {
             let pistaSorteada = Math.floor(Math.random() * 3);
             let tipoSorteio = Math.random();
-            let tipo, emoji, tamanho;
+            let tipo, emoji, tamanho, exigePulo;
 
-            if (tipoSorteio < 0.35) {
-                tipo = "moeda"; emoji = "🪙"; tamanho = 30;
-            } else if (tipoSorteio < 0.60) {
-                tipo = "barreira"; emoji = "🚧"; tamanho = 40;
-            } else if (tipoSorteio < 0.80) {
-                // Novo obstáculo: Barreira suspensa que exige agachamento
-                tipo = "barreira_alta"; emoji = "🛑"; tamanho = 40;
+            if (tipoSorteio < 0.4) {
+                tipo = "moeda"; emoji = "🪙"; tamanho = 30; exigePulo = false;
+            } else if (tipoSorteio < 0.75) {
+                tipo = "barreira"; emoji = "🚧"; tamanho = 40; exigePulo = true; // Precisa pular
             } else {
-                tipo = "trem"; emoji = "🚆"; tamanho = 55;
+                tipo = "trem"; emoji = "🚆"; tamanho = 55; exigePulo = "sempre"; // Não dá para pular por cima
             }
 
             entidades.push({
@@ -267,6 +252,7 @@
                 tipo: tipo,
                 emoji: emoji,
                 tamanho: tamanho,
+                exigePulo: exigePulo,
                 ativa: true
             });
         }
@@ -277,20 +263,22 @@
 
             distancia += velocidadePista * 0.05;
 
+            // Aumenta a velocidade gradualmente
             if (frameCount % 500 === 0) velocidadePista += 0.5;
 
             offsetPista += velocidadePista;
             if (offsetPista > 60) offsetPista = 0;
 
+            // Cria novos obstáculos baseado na velocidade atual
             if (frameCount % Math.max(30, 75 - Math.floor(velocidadePista * 2)) === 0) {
                 spawnEntidade();
             }
 
-            // Transição visual suave de pista
+            // Movimento lateral suave interpolado
             let destinoX = player.pista * LARGURA_PISTA + (LARGURA_PISTA / 2);
             player.x += (destinoX - player.x) * 0.25;
 
-            // Física do Pulo (Eixo Z)
+            // Física do Pulo (Eixo Z simulado)
             if (player.pulando) {
                 player.z += player.vz;
                 player.vz -= player.gravidade;
@@ -300,15 +288,7 @@
                 }
             }
 
-            // Atualização do temporizador de agachamento
-            if (player.agachando) {
-                player.tempoAgachado--;
-                if (player.tempoAgachado <= 0) {
-                    player.agachando = false;
-                }
-            }
-
-            // Processamento de Colisões precisas
+            // Loop de atualização das entidades (Moedas e Obstáculos)
             for (let i = 0; i < entidades.length; i++) {
                 let ent = entidades[i];
                 ent.y += velocidadePista;
@@ -316,27 +296,25 @@
                 if (ent.ativa) {
                     let distY = Math.abs(player.y - ent.y);
                     
+                    // Colisão baseada na PISTA e na proximidade do eixo Y
                     if (player.pista === ent.pista && distY < 35) {
                         if (ent.tipo === "moeda") {
+                            // Moedas coletadas voando ou no chão
                             moedas++;
                             ent.ativa = false;
                         } else if (ent.tipo === "barreira") {
-                            // Se não pulou alto o suficiente -> Fim de jogo
+                            // Se bater na barreira no chão (z baixo), Game Over
                             if (player.z < 15) {
                                 estadoJogo = "gameover";
                             }
-                        } else if (ent.tipo === "barreira_alta") {
-                            // Se NÃO estiver agachado -> Fim de jogo (Bate a cabeça)
-                            if (!player.agachando) {
-                                estadoJogo = "gameover";
-                            }
                         } else if (ent.tipo === "trem") {
-                            // Trens não podem ser pulados ou desviados por baixo
+                            // Trens são altos demais, bater neles de qualquer forma é Game Over
                             estadoJogo = "gameover";
                         }
                     }
                 }
 
+                // Remove entidades que saíram da tela
                 if (ent.y > canvas.height + 100) {
                     entidades.splice(i, 1);
                     i--;
@@ -345,16 +323,15 @@
         }
 
         function desenhar() {
-            // Limpa e pinta o asfalto
+            // Fundo da Pista
             ctx.fillStyle = "#4a4e59";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Linhas tracejadas das pistas
+            // Linhas Divisórias das Pistas (Efeito de Movimento)
             ctx.strokeStyle = "#ffffff";
             ctx.lineWidth = 6;
             ctx.setLineDash([30, 30]);
-            
-            for (let linha = 1; linha < 3; linha++) {
+            for (let linha = 1; font = 3, linha < 3; linha++) {
                 ctx.beginPath();
                 ctx.moveTo(linha * LARGURA_PISTA, -60 + offsetPista); 
                 ctx.lineTo(linha * LARGURA_PISTA, canvas.height + 60);
@@ -362,7 +339,7 @@
             }
             ctx.setLineDash([]); 
 
-            // Painel de Pontos (HUD)
+            // Interface do Usuário (HUD) durante a gameplay
             if (estadoJogo === "jogando") {
                 ctx.textAlign = "left";
                 ctx.textBaseline = "top";
@@ -379,61 +356,40 @@
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
 
-            // Renderiza Obstáculos e Moedas
+            // Desenhar Obstáculos e Moedas
             for (let ent of entidades) {
                 if (ent.ativa) {
-                    // Sombra do obstáculo (Barreiras altas têm sombra menor/diferente por estarem suspensas)
+                    // Sombra projetada do objeto
                     ctx.fillStyle = "rgba(0,0,0,0.25)";
                     ctx.beginPath();
-                    let offsetSombra = ent.tipo === "barreira_alta" ? 40 : 18;
-                    ctx.ellipse(ent.x, ent.y + offsetSombra, ent.tamanho/2.5, ent.tamanho/6, 0, 0, Math.PI*2);
+                    ctx.ellipse(ent.x, ent.y + 18, ent.tamanho/2.5, ent.tamanho/6, 0, 0, Math.PI*2);
                     ctx.fill();
 
+                    // Desenho do Emoji
                     ctx.font = `${ent.tamanho}px Arial`;
-                    
-                    // Se for barreira alta, renderiza visualmente um pouco mais acima na tela
-                    if (ent.tipo === "barreira_alta") {
-                        ctx.fillText(ent.emoji, ent.x, ent.y - 25);
-                        // Desenha os postes de sustentação da placa suspensa
-                        ctx.strokeStyle = "#ff4444";
-                        ctx.lineWidth = 3;
-                        ctx.beginPath();
-                        ctx.moveTo(ent.x - 15, ent.y); ctx.lineTo(ent.x - 15, ent.y - 25);
-                        ctx.moveTo(ent.x + 15, ent.y); ctx.lineTo(ent.x + 15, ent.y - 25);
-                        ctx.stroke();
-                    } else {
-                        ctx.fillText(ent.emoji, ent.x, ent.y);
-                    }
+                    ctx.fillText(ent.emoji, ent.x, ent.y);
                 }
             }
 
-            // Renderiza o Jogador
+            // Desenhar o Jogador (Renderizado depois dos obstáculos para ficar sobreposto)
             if (estadoJogo !== "inicio") {
+                // Sombra dinâmica baseada na altura do pulo (diminui conforme sobe)
                 let tamanhoSombra = Math.max(5, 20 - (player.z / 4));
-                if (player.agachando) tamanhoSombra = 25; // Sombra maior quando desliza no skate
-
                 ctx.fillStyle = "rgba(0,0,0,0.4)";
                 ctx.beginPath();
                 ctx.ellipse(player.x, player.y + 20, tamanhoSombra, tamanhoSombra/2, 0, 0, Math.PI*2);
                 ctx.fill();
 
-                let balancoCorrida = (!player.pulando && !player.agachando && estadoJogo === "jogando") ? Math.sin(frameCount * 0.6) * 4 : 0;
+                // Balanço de corrida usando seno
+                let balancoCorrida = (!player.pulando && estadoJogo === "jogando") ? Math.sin(frameCount * 0.6) * 4 : 0;
+                let tamanhoPlayer = 45; 
+                ctx.font = `${tamanhoPlayer}px Arial`;
                 
-                // Seleção dinâmica do Emoji baseado no estado do jogador
-                let emojiJogador = "🏃‍♂️";
-                if (player.pulando) {
-                    emojiJogador = "🦘"; // Opcional: muda no pulo
-                } else if (player.agachando) {
-                    emojiJogador = "🛹"; // Altera o emoji temporariamente enquanto agachado
-                }
-
-                ctx.font = "45px Arial";
-                // Desenha levemente mais baixo se estiver agachado
-                let offsetY = player.agachando ? 5 : 0; 
-                ctx.fillText(emojiJogador, player.x, player.y - player.z + balancoCorrida + offsetY);
+                // O eixo Y do desenho subtrai o Z para simular altura
+                ctx.fillText("🏃‍♂️", player.x, player.y - player.z + balancoCorrida);
             }
 
-            // Overlays de Interfaces
+            // Telas de Overlays (Início e Fim)
             if (estadoJogo === "inicio") {
                 desenharOverlay("SUBWAY RUNNER", "Aperte CIMA, W ou ESPAÇO para iniciar");
             } else if (estadoJogo === "gameover") {
@@ -465,8 +421,6 @@
             player.x = canvas.width / 2;
             player.z = 0;
             player.pulando = false;
-            player.agachando = false;
-            player.tempoAgachado = 0;
         }
 
         function gameLoop() {
