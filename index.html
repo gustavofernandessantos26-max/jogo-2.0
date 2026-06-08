@@ -1,842 +1,974 @@
-// ═══════════════════════════════════════════════════════
-//  STREET DASH — Subway Surfers Clone
-//  Pure Canvas 2D — sem dependências externas
-// ═══════════════════════════════════════════════════════
- 
-const canvas = document.getElementById('gameCanvas');
-const ctx    = canvas.getContext('2d');
- 
-// ── Screens ──────────────────────────────────────────
-const screens = {
-  start:    document.getElementById('screen-start'),
-  game:     document.getElementById('screen-game'),
-  gameover: document.getElementById('screen-gameover'),
-};
-function showScreen(name) {
-  Object.values(screens).forEach(s => s.classList.remove('active'));
-  screens[name].classList.add('active');
-}
- 
-// ── HUD refs ─────────────────────────────────────────
-const scoreDisplay = document.getElementById('score-display');
-const coinsDisplay = document.getElementById('coins-display');
-const multDisplay  = document.getElementById('multiplier-display');
- 
-// ── Constants ─────────────────────────────────────────
-const LANES        = 3;
-const LANE_W       = 120;
-const BASE_SPEED   = 6;
-const GRAVITY      = 0.7;
-const JUMP_FORCE   = -16;
-const SLIDE_FRAMES = 40;
-const ANIM_RATE    = 8;      // frames per sprite step
- 
-// ── Palette ──────────────────────────────────────────
-const COL = {
-  sky1:'#0d0221', sky2:'#1a0533',
-  ground:'#1c1c3a', track:'#252545',
-  rail:'#00f5d4',
-  neon:'#00f5d4', neon2:'#f72585',
-  gold:'#ffd60a',
-  white:'#eef1ff',
-  shadow:'rgba(0,0,0,0.6)',
-};
- 
-// ── Game State ─────────────────────────────────────────
-let state, raf;
- 
-function initState() {
-  return {
-    running:   false,
-    paused:    false,
-    score:     0,
-    coins:     0,
-    distance:  0,
-    speed:     BASE_SPEED,
-    frame:     0,
-    spawnTimer:0,
- 
-    player: {
-      lane:    1,          // 0 left | 1 center | 2 right
-      x:       0,          // set in resize
-      y:       0,          // ground y
-      vy:      0,
-      onGround:true,
-      jumping: false,
-      sliding: false,
-      slideTimer: 0,
-      invincible: false,
-      invTimer:   0,
-      animFrame:  0,
-      animTimer:  0,
-      w: 44, h: 72,
-    },
- 
-    obstacles: [],
-    coins_obj: [],
-    particles: [],
-    bgLayers:  initBgLayers(),
-    trails:    [],
- 
-    multiplier: 1,
-    multTimer:  0,
-  };
-}
- 
-// ─── Background layers ────────────────────────────────
-function initBgLayers() {
-  return [
-    { z:0.2, y: 0, items: randomBuildings(12, 0.2) },
-    { z:0.5, y: 0, items: randomBuildings(8,  0.5) },
-  ];
-}
- 
-function randomBuildings(count, z) {
-  const arr = [];
-  for (let i = 0; i < count; i++) {
-    arr.push({
-      x:  Math.random() * 2000,
-      w:  60  + Math.random() * 120,
-      h:  80  + Math.random() * 200,
-      hue: Math.random() > 0.5 ? 270 : 200,
-      lit: Math.random() > 0.4,
-    });
-  }
-  return arr;
-}
- 
-// ═══════════════════════════════════════════════════════
-//  CANVAS RESIZE
-// ═══════════════════════════════════════════════════════
-let W, H, GROUND_Y, LANE_CENTERS;
- 
-function resize() {
-  const container = screens.game;
-  W = canvas.width  = container.clientWidth  || window.innerWidth;
-  H = canvas.height = container.clientHeight || window.innerHeight;
- 
-  GROUND_Y     = H * 0.72;
-  const cx     = W / 2;
-  LANE_CENTERS = [cx - LANE_W, cx, cx + LANE_W];
- 
-  if (state) {
-    const p = state.player;
-    p.x = LANE_CENTERS[p.lane];
-    p.y = GROUND_Y;
-  }
-}
- 
-window.addEventListener('resize', resize);
-resize();
- 
-// ═══════════════════════════════════════════════════════
-//  INPUT
-// ═══════════════════════════════════════════════════════
-let touchStartX = 0, touchStartY = 0;
- 
-document.addEventListener('keydown', e => {
-  if (!state?.running || state.paused) return;
-  if (e.key==='ArrowLeft'  || e.key==='a') changeLane(-1);
-  if (e.key==='ArrowRight' || e.key==='d') changeLane(+1);
-  if (e.key==='ArrowUp'    || e.key==='w' || e.key===' ') jump();
-  if (e.key==='ArrowDown'  || e.key==='s') slide();
-});
- 
-canvas.addEventListener('touchstart', e => {
-  touchStartX = e.touches[0].clientX;
-  touchStartY = e.touches[0].clientY;
-}, {passive:true});
- 
-canvas.addEventListener('touchend', e => {
-  if (!state?.running || state.paused) return;
-  const dx = e.changedTouches[0].clientX - touchStartX;
-  const dy = e.changedTouches[0].clientY - touchStartY;
-  if (Math.abs(dx) > Math.abs(dy)) {
-    if (dx < -30) changeLane(-1);
-    if (dx >  30) changeLane(+1);
-  } else {
-    if (dy < -30) jump();
-    if (dy >  30) slide();
-  }
-}, {passive:true});
- 
-function changeLane(dir) {
-  const p = state.player;
-  const nl = p.lane + dir;
-  if (nl < 0 || nl >= LANES) return;
-  p.lane = nl;
-  p.x = LANE_CENTERS[nl];
-  spawnTrail(p.x, p.y - p.h/2, dir < 0 ? COL.neon : COL.neon2);
-}
- 
-function jump() {
-  const p = state.player;
-  if (p.onGround) {
-    p.vy = JUMP_FORCE;
-    p.onGround = false;
-    p.jumping  = true;
-    p.sliding  = false;
-    spawnParticles(p.x, p.y, COL.neon, 8);
-  }
-}
- 
-function slide() {
-  const p = state.player;
-  if (!p.onGround) return;
-  p.sliding   = true;
-  p.slideTimer = SLIDE_FRAMES;
-  p.jumping   = false;
-}
- 
-// ═══════════════════════════════════════════════════════
-//  SPAWNING
-// ═══════════════════════════════════════════════════════
- 
-const OBSTACLE_TYPES = ['train','barrier','low_barrier','double_barrier'];
- 
-function spawnObstacle() {
-  const type = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
-  const lane = Math.floor(Math.random() * LANES);
-  let w = 60, h = 80, canSlide = false, canJump = true, lowH = false;
- 
-  if (type === 'train')         { w=80;  h=100; }
-  if (type === 'barrier')       { w=55;  h=65;  }
-  if (type === 'low_barrier')   { w=60;  h=35; canSlide=true; lowH=true; }
-  if (type === 'double_barrier'){
-    // two lanes blocked
-    const l2 = (lane + 1) % LANES;
-    state.obstacles.push({ lane:l2, x: LANE_CENTERS[l2], y: -h, w, h, type });
-  }
- 
-  state.obstacles.push({ lane, x: LANE_CENTERS[lane] + W, y: GROUND_Y - h, w, h, type, canSlide, lowH });
-}
- 
-function spawnCoin() {
-  const lane = Math.floor(Math.random() * LANES);
-  const count = 3 + Math.floor(Math.random() * 5);
-  for (let i = 0; i < count; i++) {
-    state.coins_obj.push({
-      lane, collected:false,
-      x: LANE_CENTERS[lane] + W + i * 60,
-      y: GROUND_Y - 40 - Math.sin(i * 0.8) * 40,
-      r: 12, anim: Math.random() * Math.PI * 2,
-    });
-  }
-}
- 
-function spawnTrail(x, y, col) {
-  state.trails.push({ x, y, alpha:1, col, r: 18 });
-}
- 
-function spawnParticles(x, y, col, n=12) {
-  for (let i=0; i<n; i++) {
-    const angle = (Math.PI * 2 / n) * i + Math.random()*0.3;
-    const spd   = 2 + Math.random() * 4;
-    state.particles.push({
-      x, y, col,
-      vx: Math.cos(angle)*spd,
-      vy: Math.sin(angle)*spd - 2,
-      alpha: 1, r: 3+Math.random()*3,
-    });
-  }
-}
- 
-// ═══════════════════════════════════════════════════════
-//  COLLISION
-// ═══════════════════════════════════════════════════════
-function checkCollision(p, ob) {
-  const ph = p.sliding ? p.h * 0.45 : p.h;
-  const py = p.y - ph;
-  const px = p.x - p.w/2;
- 
-  const ox = ob.x - ob.w/2;
-  const oy = GROUND_Y - ob.h;
- 
-  return (
-    px < ox + ob.w &&
-    px + p.w > ox &&
-    py < oy + ob.h &&
-    py + ph > oy
-  );
-}
- 
-function checkCoin(p, c) {
-  const dx = p.x - c.x;
-  const dy = (p.y - p.h/2) - c.y;
-  return Math.sqrt(dx*dx + dy*dy) < p.w/2 + c.r;
-}
- 
-// ═══════════════════════════════════════════════════════
-//  MAIN UPDATE LOOP
-// ═══════════════════════════════════════════════════════
-function update() {
-  if (!state.running || state.paused) return;
-  const p = state.player;
-  state.frame++;
-  state.distance += state.speed;
-  state.score = Math.floor(state.distance / 10);
- 
-  // Speed ramp
-  state.speed = BASE_SPEED + Math.floor(state.distance / 3000) * 0.5;
- 
-  // Multiplier
-  state.multTimer++;
-  if (state.multTimer > 200) {
-    state.multTimer = 0;
-    state.multiplier = Math.min(state.multiplier + 1, 5);
-  }
- 
-  // Player physics
-  if (!p.onGround) {
-    p.vy += GRAVITY;
-    p.y  += p.vy;
-    if (p.y >= GROUND_Y) {
-      p.y = GROUND_Y;
-      p.vy = 0;
-      p.onGround = true;
-      p.jumping  = false;
-      spawnParticles(p.x, p.y, '#555', 6);
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STREET DASH — Cyberpunk Runner</title>
+  <style>
+    :root {
+      --bg-dark: #0d0221;
+      --neon-cyan: #00f5d4;
+      --neon-pink: #f72585;
+      --gold: #ffd60a;
+      --white: #eef1ff;
     }
-  }
- 
-  // Slide
-  if (p.sliding) {
-    p.slideTimer--;
-    if (p.slideTimer <= 0) p.sliding = false;
-  }
- 
-  // Invincibility
-  if (p.invincible) {
-    p.invTimer--;
-    if (p.invTimer <= 0) p.invincible = false;
-  }
- 
-  // Player anim
-  p.animTimer++;
-  if (p.animTimer >= ANIM_RATE) {
-    p.animTimer = 0;
-    p.animFrame = (p.animFrame + 1) % 4;
-  }
- 
-  // BG parallax
-  state.bgLayers.forEach(layer => {
-    layer.items.forEach(b => {
-      b.x -= state.speed * layer.z;
-      if (b.x + b.w < 0) b.x = W + Math.random() * 200;
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg-dark);
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Container Principal */
+    #game-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      max-width: 1000px;
+      max-height: 600px;
+      border: 2px solid var(--neon-cyan);
+      box-shadow: 0 0 20px rgba(0, 245, 212, 0.3);
+      background: #1a0533;
+    }
+
+    /* Telas */
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+      color: var(--white);
+      text-align: center;
+      padding: 20px;
+    }
+
+    .screen.active {
+      display: flex;
+    }
+
+    #screen-start {
+      background: linear-gradient(135deg, #0d0221 0%, #1a0533 100%);
+    }
+
+    #screen-game {
+      background: transparent;
+      padding: 0;
+    }
+
+    #screen-gameover {
+      background: rgba(13, 2, 33, 0.85);
+      backdrop-filter: blur(5px);
+    }
+
+    /* Canvas */
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* UI & Fontes Neon */
+    h1 {
+      font-size: 3.5rem;
+      text-transform: uppercase;
+      color: var(--white);
+      text-shadow: 0 0 10px var(--neon-cyan), 0 0 20px var(--neon-pink);
+      margin-bottom: 10px;
+      letter-spacing: 4px;
+    }
+
+    h2 {
+      font-size: 2.5rem;
+      color: var(--neon-pink);
+      text-shadow: 0 0 10px var(--neon-pink);
+      margin-bottom: 20px;
+    }
+
+    p {
+      font-size: 1.2rem;
+      margin-bottom: 25px;
+      color: #9d8ec2;
+    }
+
+    /* Botões */
+    button {
+      background: transparent;
+      color: var(--white);
+      border: 2px solid var(--neon-cyan);
+      padding: 12px 35px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 10px rgba(0, 245, 212, 0.2);
+    }
+
+    button:hover {
+      background: var(--neon-cyan);
+      color: var(--bg-dark);
+      box-shadow: 0 0 20px var(--neon-cyan);
+      transform: scale(1.05);
+    }
+
+    button.secondary {
+      border-color: var(--neon-pink);
+      margin-top: 15px;
+    }
+    button.secondary:hover {
+      background: var(--neon-pink);
+      box-shadow: 0 0 20px var(--neon-pink);
+    }
+
+    /* HUD (Placar durante o jogo) */
+    .hud {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .hud-left {
+      display: flex;
+      gap: 20px;
+    }
+
+    .hud-item {
+      background: rgba(13, 2, 33, 0.7);
+      padding: 8px 16px;
+      border-radius: 4px;
+      border-left: 3px solid var(--neon-cyan);
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+
+    #multiplier-display {
+      color: var(--neon-pink);
+      border-left-color: var(--neon-pink);
+    }
+
+    #coins-display-wrapper {
+      color: var(--gold);
+      border-left-color: var(--gold);
+    }
+
+    #pause-btn {
+      pointer-events: auto;
+      padding: 5px 15px;
+      font-size: 1rem;
+    }
+
+    /* Stats finais */
+    .stats-box {
+      background: rgba(26, 5, 51, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 25px;
+      min-width: 280px;
+    }
+
+    .stat-line {
+      display: flex;
+      justify-content: space-between;
+      margin: 10px 0;
+      font-size: 1.1rem;
+    }
+    .stat-line span:last-child {
+      font-weight: bold;
+      color: var(--neon-cyan);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    
+    <div id="screen-start" class="screen active">
+      <h1>Street Dash</h1>
+      <p>High Score: <span id="hs-value" style="color: var(--neon-cyan); font-weight:bold;">0</span></p>
+      <button id="btn-start">Jogar</button>
+      <p style="font-size: 0.9rem; margin-top: 30px; color: #66568a;">
+        Controles: W / S ou Setas (Cima/Baixo) para Pular/Deslizar<br>
+        A / D ou Setas (Esquerda/Direita) para Mudar de Pista
+      </p>
+    </div>
+
+    <div id="screen-game" class="screen">
+      <div class="hud">
+        <div class="hud-left">
+          <div class="hud-item">SCORE: <span id="score-display">0</span></div>
+          <div class="hud-item" id="coins-display-wrapper">COINS: <span id="coins-display">0</span></div>
+          <div class="hud-item" id="multiplier-display">x1</div>
+        </div>
+        <button id="pause-btn">⏸</button>
+      </div>
+      <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <div id="screen-gameover" class="screen">
+      <h2>Game Over</h2>
+      <div class="stats-box">
+        <div class="stat-line"><span>Pontuação:</span> <span id="final-score">0</span></div>
+        <div class="stat-line"><span>Moedas:</span> <span id="final-coins">0</span></div>
+        <div class="stat-line"><span>Melhor Pontuação:</span> <span id="final-hs">0</span></div>
+      </div>
+      <button id="btn-restart">Jogar Novamente</button>
+      <button id="btn-menu" class="secondary">Menu Principal</button>
+    </div>
+
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx    = canvas.getContext('2d');
+     
+    // ── Screens ──────────────────────────────────────────
+    const screens = {
+      start:    document.getElementById('screen-start'),
+      game:     document.getElementById('screen-game'),
+      gameover: document.getElementById('screen-gameover'),
+    };
+    function showScreen(name) {
+      Object.values(screens).forEach(s => s.classList.remove('active'));
+      screens[name].classList.add('active');
+    }
+     
+    // ── HUD refs ─────────────────────────────────────────
+    const scoreDisplay = document.getElementById('score-display');
+    const coinsDisplay = document.getElementById('coins-display');
+    const multDisplay  = document.getElementById('multiplier-display');
+     
+    // ── Constants ─────────────────────────────────────────
+    const LANES        = 3;
+    const LANE_W       = 65; // Espaçamento vertical entre pistas
+    const BASE_SPEED   = 6;
+    const GRAVITY      = 0.8;
+    const JUMP_FORCE   = -14;
+    const SLIDE_FRAMES = 40;
+    const ANIM_RATE    = 6;      
+     
+    // ── Palette ──────────────────────────────────────────
+    const COL = {
+      sky1:'#0d0221', sky2:'#1a0533',
+      ground:'#1c1c3a', track:'#252545',
+      rail:'#00f5d4',
+      neon:'#00f5d4', neon2:'#f72585',
+      gold:'#ffd60a',
+      white:'#eef1ff',
+      shadow:'rgba(0,0,0,0.5)',
+    };
+     
+    // ── Game State ─────────────────────────────────────────
+    let state, raf;
+     
+    function initState() {
+      return {
+        running:   false,
+        paused:    false,
+        score:     0,
+        coins:     0,
+        distance:  0,
+        speed:     BASE_SPEED,
+        frame:     0,
+        spawnTimer:0,
+     
+        player: {
+          lane:    1,          // 0 top | 1 center | 2 bottom
+          x:       0,          
+          y:       0,          
+          vy:      0,
+          baseY:   0,          // Chão dinâmico da pista atual
+          onGround:true,
+          jumping: false,
+          sliding: false,
+          slideTimer: 0,
+          invincible: false,
+          invTimer:   0,
+          animFrame:  0,
+          animTimer:  0,
+          w: 40, h: 68,
+        },
+     
+        obstacles: [],
+        coins_obj: [],
+        particles: [],
+        bgLayers:  initBgLayers(),
+        trails:    [],
+     
+        multiplier: 1,
+        multTimer:  0,
+      };
+    }
+     
+    function initBgLayers() {
+      return [
+        { z:0.15, y: 0, items: randomBuildings(15, 0.15) },
+        { z:0.4,  y: 0, items: randomBuildings(10, 0.4) },
+      ];
+    }
+     
+    function randomBuildings(count, z) {
+      const arr = [];
+      for (let i = 0; i < count; i++) {
+        arr.push({
+          x:  Math.random() * 2000,
+          w:  70  + Math.random() * 100,
+          h:  120 + Math.random() * 180,
+          hue: Math.random() > 0.5 ? 270 : 200,
+          lit: Math.random() > 0.3,
+        });
+      }
+      return arr;
+    }
+     
+    // ═══════════════════════════════════════════════════════
+    //  CANVAS RESIZE & TRACK HEIGHT LAYOUT
+    // ═══════════════════════════════════════════════════════
+    let W, H, LANE_CENTERS;
+     
+    function resize() {
+      const container = screens.game;
+      W = canvas.width  = container.clientWidth  || window.innerWidth;
+      H = canvas.height = container.clientHeight || window.innerHeight;
+     
+      // Pistas horizontais empilhadas no terço inferior da tela
+      const horizonY = H * 0.65;
+      LANE_CENTERS = [horizonY, horizonY + LANE_W, horizonY + LANE_W * 2];
+     
+      if (state) {
+        const p = state.player;
+        p.x = W * 0.22; // Jogador fixo a 22% da esquerda
+        p.baseY = LANE_CENTERS[p.lane];
+        if (p.onGround) p.y = p.baseY;
+      }
+    }
+     
+    window.addEventListener('resize', resize);
+    setTimeout(resize, 50); // Garante dimensões corretas após render do DOM
+     
+    // ═══════════════════════════════════════════════════════
+    //  INPUT
+    // ═══════════════════════════════════════════════════════
+    let touchStartX = 0, touchStartY = 0;
+     
+    document.addEventListener('keydown', e => {
+      if (!state?.running || state.paused) return;
+      if (e.key==='ArrowUp'    || e.key==='w') changeLane(-1);
+      if (e.key==='ArrowDown'  || e.key==='s') changeLane(+1);
+      if (e.key===' '          || e.key==='Spacebar') jump();
+      if (e.key==='ArrowLeft'  || e.key==='a' || e.key==='ArrowRight' || e.key==='d') slide();
     });
-  });
- 
-  // Spawn
-  state.spawnTimer++;
-  const interval = Math.max(60, 130 - Math.floor(state.distance / 1500) * 8);
-  if (state.spawnTimer > interval) {
-    state.spawnTimer = 0;
-    if (Math.random() < 0.7) spawnObstacle();
-    if (Math.random() < 0.5) spawnCoin();
-  }
- 
-  // Move obstacles
-  state.obstacles = state.obstacles.filter(ob => {
-    ob.x -= state.speed;
-    if (!p.invincible && checkCollision(p, ob)) {
-      // Hit!
-      if (ob.canSlide && p.sliding) return false; // slid under it
-      p.invincible = true;
-      p.invTimer   = 80;
-      spawnParticles(p.x, p.y - p.h/2, COL.neon2, 20);
-      gameOver();
-      return false;
+     
+    canvas.addEventListener('touchstart', e => {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }, {passive:true});
+     
+    canvas.addEventListener('touchend', e => {
+      if (!state?.running || state.paused) return;
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      if (Math.abs(dy) > Math.abs(dx)) {
+        if (dy < -30) changeLane(-1); // Deslizar para cima muda pista
+        if (dy >  30) changeLane(+1); // Deslizar para baixo muda pista
+      } else {
+        if (dx >  30) jump();
+        if (dx < -30) slide();
+      }
+    }, {passive:true});
+     
+    function changeLane(dir) {
+      const p = state.player;
+      const nl = p.lane + dir;
+      if (nl < 0 || nl >= LANES) return;
+      
+      p.lane = nl;
+      p.baseY = LANE_CENTERS[nl];
+      
+      if (p.onGround) {
+        p.y = p.baseY;
+        spawnTrail(p.x, p.y - p.h/2, dir < 0 ? COL.neon : COL.neon2);
+      }
     }
-    return ob.x + ob.w > -W/2;
-  });
- 
-  // Move coins
-  state.coins_obj = state.coins_obj.filter(c => {
-    c.x -= state.speed;
-    c.anim += 0.08;
-    if (!c.collected && checkCoin(p, c)) {
-      c.collected = true;
-      state.coins += state.multiplier;
-      spawnParticles(c.x, c.y, COL.gold, 6);
-      return false;
+     
+    function jump() {
+      const p = state.player;
+      if (p.onGround && !p.sliding) {
+        p.vy = JUMP_FORCE;
+        p.onGround = false;
+        p.jumping  = true;
+        spawnParticles(p.x, p.y, COL.neon, 8);
+      }
     }
-    return c.x + c.r > 0;
-  });
- 
-  // Trails
-  state.trails = state.trails.filter(t => {
-    t.alpha -= 0.06;
-    t.r += 2;
-    return t.alpha > 0;
-  });
- 
-  // Particles
-  state.particles = state.particles.filter(p2 => {
-    p2.x += p2.vx;
-    p2.y += p2.vy;
-    p2.vy += 0.2;
-    p2.alpha -= 0.03;
-    return p2.alpha > 0;
-  });
- 
-  // HUD
-  scoreDisplay.textContent = state.score * state.multiplier;
-  coinsDisplay.textContent = state.coins;
-  multDisplay.textContent  = `x${state.multiplier}`;
-}
- 
-// ═══════════════════════════════════════════════════════
-//  DRAW
-// ═══════════════════════════════════════════════════════
-function draw() {
-  ctx.clearRect(0, 0, W, H);
- 
-  drawBackground();
-  drawTrack();
-  drawTrails();
-  drawCoins();
-  drawObstacles();
-  drawPlayer();
-  drawParticles();
-}
- 
-// ── Background ─────────────────────────────────────────
-function drawBackground() {
-  // Sky gradient
-  const sky = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
-  sky.addColorStop(0, COL.sky1);
-  sky.addColorStop(1, COL.sky2);
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, W, GROUND_Y);
- 
-  // Buildings (far)
-  drawBuildings(state.bgLayers[0], 0.4, H * 0.4);
-  // Buildings (near)
-  drawBuildings(state.bgLayers[1], 0.7, H * 0.2);
- 
-  // Ground
-  const gnd = ctx.createLinearGradient(0, GROUND_Y, 0, H);
-  gnd.addColorStop(0, '#1c1c3a');
-  gnd.addColorStop(1, '#0d0221');
-  ctx.fillStyle = gnd;
-  ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
-}
- 
-function drawBuildings(layer, alpha, maxH) {
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  layer.items.forEach(b => {
-    const bY = GROUND_Y - b.h;
-    // Building body
-    ctx.fillStyle = `hsl(${b.hue}, 30%, 12%)`;
-    ctx.fillRect(b.x - b.w/2, bY, b.w, b.h);
-    // Outline
-    ctx.strokeStyle = `hsla(${b.hue}, 60%, 35%, 0.3)`;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(b.x - b.w/2, bY, b.w, b.h);
-    // Windows
-    if (b.lit) {
-      const cols = Math.floor(b.w / 18);
-      const rows = Math.floor(b.h / 22);
-      for (let r=1; r<rows; r++) {
-        for (let c=0; c<cols; c++) {
-          if (Math.random() < 0.5) continue;
-          ctx.fillStyle = `hsla(${b.hue+40}, 80%, 65%, 0.6)`;
-          ctx.fillRect(b.x - b.w/2 + c*18 + 4, bY + r*22, 8, 10);
+     
+    function slide() {
+      const p = state.player;
+      if (!p.onGround || p.sliding) return;
+      p.sliding   = true;
+      p.slideTimer = SLIDE_FRAMES;
+    }
+     
+    // ═══════════════════════════════════════════════════════
+    //  SPAWNING (Obstáculos vêm da direita)
+    // ═══════════════════════════════════════════════════════
+    const OBSTACLE_TYPES = ['train','barrier','low_barrier','double_barrier'];
+     
+    function spawnObstacle() {
+      const type = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
+      const lane = Math.floor(Math.random() * LANES);
+      let w = 55, h = 55, canSlide = false, lowH = false;
+     
+      if (type === 'train')         { w=90;  h=65; }
+      if (type === 'barrier')       { w=45;  h=50; }
+      if (type === 'low_barrier')   { w=50;  h=30; canSlide=true; lowH=true; }
+     
+      const spawnX = W + 100;
+     
+      if (type === 'double_barrier') {
+        const l2 = (lane + 1) % LANES;
+        state.obstacles.push({ lane: l2, x: spawnX, y: LANE_CENTERS[l2], w: 45, h: 50, type: 'barrier', canSlide: false });
+      }
+     
+      state.obstacles.push({ lane, x: spawnX, y: LANE_CENTERS[lane], w, h, type, canSlide, lowH });
+    }
+     
+    function spawnCoin() {
+      const lane = Math.floor(Math.random() * LANES);
+      const count = 3 + Math.floor(Math.random() * 4);
+      const startX = W + 50;
+      
+      for (let i = 0; i < count; i++) {
+        state.coins_obj.push({
+          lane, 
+          collected: false,
+          x: startX + i * 45,
+          y: LANE_CENTERS[lane] - 30 - Math.sin(i * 0.8) * 20,
+          r: 10, 
+          anim: Math.random() * 5,
+        });
+      }
+    }
+     
+    function spawnTrail(x, y, col) {
+      state.trails.push({ x, y, alpha:1, col, r: 14 });
+    }
+     
+    function spawnParticles(x, y, col, n=12) {
+      for (let i=0; i<n; i++) {
+        const angle = (Math.PI * 2 / n) * i + Math.random()*0.3;
+        const spd   = 1 + Math.random() * 3;
+        state.particles.push({
+          x, y, col,
+          vx: Math.cos(angle)*spd - 1,
+          vy: Math.sin(angle)*spd - 1,
+          alpha: 1, r: 2+Math.random()*2,
+        });
+      }
+    }
+     
+    // ═══════════════════════════════════════════════════════
+    //  COLLISION
+    // ═══════════════════════════════════════════════════════
+    function checkCollision(p, ob) {
+      if (p.lane !== ob.lane) return false; // Ignora se estiver em pistas verticais diferentes
+      
+      const ph = p.sliding ? p.h * 0.45 : p.h;
+      const py = p.y - ph;
+      const px = p.x - p.w/2;
+     
+      const ox = ob.x - ob.w/2;
+      const oy = ob.y - ob.h;
+     
+      return (
+        px < ox + ob.w &&
+        px + p.w > ox &&
+        py < oy + ob.h &&
+        py + ph > oy
+      );
+    }
+     
+    function checkCoin(p, c) {
+      if (p.lane !== c.lane) return false;
+      const dx = p.x - c.x;
+      const dy = (p.y - p.h/2) - c.y;
+      return Math.sqrt(dx*dx + dy*dy) < p.w/2 + c.r;
+    }
+     
+    // ═══════════════════════════════════════════════════════
+    //  MAIN UPDATE LOOP
+    // ═══════════════════════════════════════════════════════
+    function update() {
+      if (!state.running || state.paused) return;
+      const p = state.player;
+      state.frame++;
+      state.distance += state.speed;
+      state.score = Math.floor(state.distance / 12);
+     
+      // Aceleração progressiva
+      state.speed = BASE_SPEED + Math.floor(state.distance / 2500) * 0.6;
+     
+      // Multiplicador temporal
+      state.multTimer++;
+      if (state.multTimer > 300) {
+        state.multTimer = 0;
+        state.multiplier = Math.min(state.multiplier + 1, 5);
+      }
+     
+      // Física do Pulo
+      if (!p.onGround) {
+        p.vy += GRAVITY;
+        p.y  += p.vy;
+        if (p.y >= p.baseY) {
+          p.y = p.baseY;
+          p.vy = 0;
+          p.onGround = true;
+          p.jumping  = false;
+          spawnParticles(p.x, p.y, '#66568a', 5);
         }
       }
-    }
-  });
-  ctx.restore();
-}
- 
-// ── Track ──────────────────────────────────────────────
-function drawTrack() {
-  const trackH = H - GROUND_Y;
-  const laneTotal = LANE_W * LANES + LANE_W;
-  const left  = W/2 - laneTotal/2;
-  const right = W/2 + laneTotal/2;
- 
-  // Track bed
-  ctx.fillStyle = COL.track;
-  ctx.fillRect(left, GROUND_Y, right - left, trackH);
- 
-  // Lane dividers
-  for (let i = 0; i <= LANES; i++) {
-    const lx = left + i * LANE_W;
-    ctx.strokeStyle = 'rgba(0,245,212,0.15)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([10, 20]);
-    ctx.beginPath();
-    ctx.moveTo(lx, GROUND_Y);
-    ctx.lineTo(lx, H);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
- 
-  // Rail lines (top glow)
-  for (let i = 0; i <= LANES; i++) {
-    const lx = left + i * LANE_W;
-    const railGlow = ctx.createLinearGradient(lx - 3, 0, lx + 3, 0);
-    railGlow.addColorStop(0, 'transparent');
-    railGlow.addColorStop(0.5, COL.neon);
-    railGlow.addColorStop(1, 'transparent');
-    ctx.fillStyle = railGlow;
-    ctx.fillRect(lx - 2, GROUND_Y - 2, 4, 6);
-  }
- 
-  // Ground neon border
-  ctx.strokeStyle = COL.neon;
-  ctx.lineWidth = 2;
-  ctx.shadowBlur = 12;
-  ctx.shadowColor = COL.neon;
-  ctx.beginPath();
-  ctx.moveTo(left, GROUND_Y);
-  ctx.lineTo(right, GROUND_Y);
-  ctx.stroke();
-  ctx.shadowBlur = 0;
- 
-  // Animated tie lines (perspective)
-  const now = (state?.frame || 0) * state?.speed * 0.5 || 0;
-  ctx.strokeStyle = 'rgba(0,245,212,0.1)';
-  ctx.lineWidth = 2;
-  for (let i = 0; i < 10; i++) {
-    const ty = GROUND_Y + ((i * 40 + now) % (H - GROUND_Y + 40)) - 20;
-    ctx.beginPath();
-    ctx.moveTo(left, ty);
-    ctx.lineTo(right, ty);
-    ctx.stroke();
-  }
-}
- 
-// ── Player ─────────────────────────────────────────────
-function drawPlayer() {
-  if (!state) return;
-  const p = state.player;
-  const ph = p.sliding ? p.h * 0.45 : p.h;
-  const py = p.y - ph;
-  const px = p.x - p.w / 2;
- 
-  // Blink if invincible
-  if (p.invincible && Math.floor(state.frame / 4) % 2 === 0) return;
- 
-  ctx.save();
- 
-  // Shadow
-  ctx.fillStyle = COL.shadow;
-  ctx.beginPath();
-  ctx.ellipse(p.x, p.y + 2, p.w/2, 6, 0, 0, Math.PI * 2);
-  ctx.fill();
- 
-  if (p.sliding) {
-    drawPlayerSliding(px, py, p.w, ph);
-  } else {
-    drawPlayerRunning(px, py, p.w, ph, p.animFrame, p.jumping);
-  }
- 
-  ctx.restore();
-}
- 
-function drawPlayerRunning(px, py, pw, ph, frame, jumping) {
-  const cx = px + pw / 2;
- 
-  // Body
-  const bodyGrad = ctx.createLinearGradient(px, py, px + pw, py + ph);
-  bodyGrad.addColorStop(0, '#f72585');
-  bodyGrad.addColorStop(1, '#7209b7');
-  ctx.fillStyle = bodyGrad;
-  roundRect(ctx, px + 6, py + ph*0.3, pw - 12, ph * 0.5, 6);
-  ctx.fill();
- 
-  // Head
-  ctx.fillStyle = '#f4a261';
-  ctx.beginPath();
-  ctx.arc(cx, py + ph*0.18, pw*0.28, 0, Math.PI*2);
-  ctx.fill();
- 
-  // Hair
-  ctx.fillStyle = '#333';
-  ctx.beginPath();
-  ctx.arc(cx, py + ph*0.12, pw*0.25, Math.PI, 0);
-  ctx.fill();
- 
-  // Eyes
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(cx - 8, py + ph*0.14, 6, 5);
-  ctx.fillRect(cx + 2, py + ph*0.14, 6, 5);
-  ctx.fillStyle = '#222';
-  ctx.fillRect(cx - 7, py + ph*0.15, 4, 4);
-  ctx.fillRect(cx + 3, py + ph*0.15, 4, 4);
- 
-  // Legs animated
-  const legSwing = jumping ? 20 : Math.sin(frame * Math.PI / 2) * 14;
-  ctx.fillStyle = '#3a0ca3';
-  ctx.fillRect(cx - pw/2 + 4, py + ph*0.78, pw/2 - 4, ph*0.22);
-  ctx.fillRect(cx, py + ph*0.78, pw/2 - 4, ph*0.22);
- 
-  // Shoes
-  ctx.fillStyle = '#000';
-  ctx.fillRect(cx - pw/2 + 2, py + ph - 8, pw/2, 8);
-  ctx.fillRect(cx, py + ph - 8, pw/2, 8);
- 
-  // Arms
-  ctx.fillStyle = '#f4a261';
-  const armAngle = Math.sin(frame * Math.PI / 2) * 0.4;
-  ctx.save();
-  ctx.translate(px + 6, py + ph * 0.38);
-  ctx.rotate(-armAngle);
-  ctx.fillRect(0, 0, 8, ph * 0.28);
-  ctx.restore();
- 
-  ctx.save();
-  ctx.translate(px + pw - 14, py + ph * 0.38);
-  ctx.rotate(armAngle);
-  ctx.fillRect(0, 0, 8, ph * 0.28);
-  ctx.restore();
- 
-  // Neon stripe on jacket
-  ctx.strokeStyle = COL.neon;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(cx, py + ph*0.32);
-  ctx.lineTo(cx, py + ph*0.78);
-  ctx.stroke();
-}
- 
-function drawPlayerSliding(px, py, pw, ph) {
-  const cx = px + pw/2;
- 
-  // Body horizontal
-  const bodyGrad = ctx.createLinearGradient(px, py, px+pw, py+ph);
-  bodyGrad.addColorStop(0,'#f72585');
-  bodyGrad.addColorStop(1,'#7209b7');
-  ctx.fillStyle = bodyGrad;
-  roundRect(ctx, px, py + ph*0.1, pw * 1.4, ph * 0.7, 8);
-  ctx.fill();
- 
-  // Head
-  ctx.fillStyle = '#f4a261';
-  ctx.beginPath();
-  ctx.arc(cx + pw*0.35, py + ph*0.4, pw*0.25, 0, Math.PI*2);
-  ctx.fill();
- 
-  // Eyes
-  ctx.fillStyle = '#222';
-  ctx.fillRect(cx + pw*0.42, py + ph*0.35, 4, 4);
-}
- 
-// ── Obstacles ──────────────────────────────────────────
-function drawObstacles() {
-  state.obstacles.forEach(ob => {
-    const oy = GROUND_Y - ob.h;
-    const ox = ob.x - ob.w/2;
- 
-    ctx.save();
-    if (ob.type === 'train' || ob.type === 'double_barrier') {
-      // Train
-      const grad = ctx.createLinearGradient(ox, oy, ox+ob.w, oy+ob.h);
-      grad.addColorStop(0, '#2d2d4e');
-      grad.addColorStop(1, '#1a1a35');
-      ctx.fillStyle = grad;
-      roundRect(ctx, ox, oy, ob.w, ob.h, 6);
-      ctx.fill();
- 
-      ctx.strokeStyle = COL.neon2;
-      ctx.lineWidth = 2;
-      ctx.shadowBlur = 8;
-      ctx.shadowColor = COL.neon2;
-      roundRect(ctx, ox, oy, ob.w, ob.h, 6);
-      ctx.stroke();
-      ctx.shadowBlur = 0;
- 
-      // Windows
-      ctx.fillStyle = 'rgba(0,245,212,0.3)';
-      for (let i = 0; i < 3; i++) {
-        ctx.fillRect(ox + 8 + i*22, oy + 10, 16, 20);
+     
+      // Deslizamento
+      if (p.sliding) {
+        p.slideTimer--;
+        if (p.slideTimer <= 0) p.sliding = false;
       }
-      // Stripe
-      ctx.fillStyle = COL.neon2;
-      ctx.fillRect(ox, oy + ob.h*0.6, ob.w, 3);
- 
-    } else if (ob.type === 'barrier') {
-      // Barrier
-      ctx.fillStyle = '#ff6b00';
-      ctx.fillRect(ox, oy, ob.w, ob.h);
- 
+     
+      // Invulnerabilidade pós-hit piscante
+      if (p.invincible) {
+        p.invTimer--;
+        if (p.invTimer <= 0) p.invincible = false;
+      }
+     
+      // Animação do Sprite do Player
+      p.animTimer++;
+      if (p.animTimer >= ANIM_RATE) {
+        p.animTimer = 0;
+        p.animFrame = (p.animFrame + 1) % 4;
+      }
+     
+      // Parallax do Background Ciberpunk
+      state.bgLayers.forEach(layer => {
+        layer.items.forEach(b => {
+          b.x -= state.speed * layer.z;
+          if (b.x + b.w < 0) b.x = W + Math.random() * 300;
+        });
+      });
+     
+      // Gerador de fluxo procedural (Spawn)
+      state.spawnTimer++;
+      const interval = Math.max(50, 120 - Math.floor(state.distance / 2000) * 8);
+      if (state.spawnTimer > interval) {
+        state.spawnTimer = 0;
+        if (Math.random() < 0.65) spawnObstacle();
+        else if (Math.random() < 0.5) spawnCoin();
+      }
+     
+      // Processar Obstáculos
+      state.obstacles = state.obstacles.filter(ob => {
+        ob.x -= state.speed;
+        if (!p.invincible && checkCollision(p, ob)) {
+          if (ob.canSlide && p.sliding) return true; // Passou raspando por baixo!
+          
+          p.invincible = true;
+          p.invTimer   = 60;
+          spawnParticles(p.x, p.y - p.h/2, COL.neon2, 25);
+          gameOver();
+          return false;
+        }
+        return ob.x + ob.w > -50;
+      });
+     
+      // Processar Moedas
+      state.coins_obj = state.coins_obj.filter(c => {
+        c.x -= state.speed;
+        c.anim += 0.1;
+        if (!c.collected && checkCoin(p, c)) {
+          c.collected = true;
+          state.coins += 1 * state.multiplier;
+          spawnParticles(c.x, c.y, COL.gold, 6);
+          return false;
+        }
+        return c.x + c.r > -20;
+      });
+     
+      // Efeitos Visuais (Rastros e Partículas)
+      state.trails = state.trails.filter(t => {
+        t.alpha -= 0.05;
+        t.r += 1.5;
+        return t.alpha > 0;
+      });
+     
+      state.particles = state.particles.filter(p2 => {
+        p2.x += p2.vx;
+        p2.y += p2.vy;
+        p2.vy += 0.15;
+        p2.alpha -= 0.025;
+        return p2.alpha > 0;
+      });
+     
+      // Atualização Dinâmica da HUD
+      scoreDisplay.textContent = state.score * state.multiplier;
+      coinsDisplay.textContent = state.coins;
+      multDisplay.textContent  = `x${state.multiplier}`;
+    }
+     
+    // ═══════════════════════════════════════════════════════
+    //  DRAW ENGINE
+    // ═══════════════════════════════════════════════════════
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      drawBackground();
+      drawTrack();
+      drawTrails();
+      drawCoins();
+      drawObstacles();
+      drawPlayer();
+      drawParticles();
+    }
+     
+    function drawBackground() {
+      const sky = ctx.createLinearGradient(0, 0, 0, LANE_CENTERS[0]);
+      sky.addColorStop(0, COL.sky1);
+      sky.addColorStop(1, COL.sky2);
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, LANE_CENTERS[0]);
+     
+      drawBuildings(state.bgLayers[0], 0.35);
+      drawBuildings(state.bgLayers[1], 0.65);
+     
+      // Base asfáltica das pistas
+      ctx.fillStyle = '#14142b';
+      ctx.fillRect(0, LANE_CENTERS[0] - 40, W, H - LANE_CENTERS[0] + 40);
+    }
+     
+    function drawBuildings(layer, alpha) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      layer.items.forEach(b => {
+        const bY = LANE_CENTERS[0] - b.h + 20;
+        ctx.fillStyle = `hsl(${b.hue}, 35%, 11%)`;
+        ctx.fillRect(b.x, bY, b.w, b.h);
+        ctx.strokeStyle = `hsla(${b.hue}, 60%, 30%, 0.4)`;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(b.x, bY, b.w, b.h);
+        
+        if (b.lit) {
+          const cols = Math.floor(b.w / 16);
+          const rows = Math.floor(b.h / 20);
+          ctx.fillStyle = `hsla(${b.hue + 30}, 85%, 65%, 0.5)`;
+          for (let r=2; r<rows-1; r++) {
+            for (let c=1; c<cols-1; c++) {
+              if (Math.sin(c + r + b.x) > 0.2) {
+                ctx.fillRect(b.x + c*16, bY + r*20, 6, 9);
+              }
+            }
+          }
+        }
+      });
+      ctx.restore();
+    }
+     
+    function drawTrack() {
+      // Desenha as três linhas de trilho neon baseadas no Y das pistas
+      LANE_CENTERS.forEach((ly, index) => {
+        ctx.fillStyle = COL.track;
+        ctx.fillRect(0, ly - 5, W, 10);
+        
+        ctx.strokeStyle = index === 1 ? COL.neon2 : COL.neon;
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = ctx.strokeStyle;
+        ctx.beginPath();
+        ctx.moveTo(0, ly);
+        ctx.lineTo(W, ly);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+     
+        // Linhas estéticas de velocidade nos trilhos
+        const offset = (state?.frame || 0) * (state?.speed || 0) * 0.6 % 60;
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 2;
+        for (let tx = W; tx > -40; tx -= 60) {
+          ctx.beginPath();
+          ctx.moveTo(tx - offset, ly - 4);
+          ctx.lineTo(tx - offset + 15, ly - 4);
+          ctx.stroke();
+        }
+      });
+    }
+     
+    function drawPlayer() {
+      if (!state) return;
+      const p = state.player;
+      const ph = p.sliding ? p.h * 0.45 : p.h;
+      const py = p.y - ph;
+      const px = p.x - p.w / 2;
+     
+      if (p.invincible && Math.floor(state.frame / 4) % 2 === 0) return;
+     
+      ctx.save();
+      ctx.fillStyle = COL.shadow;
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y + 2, p.w/1.4, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+     
+      if (p.sliding) {
+        drawPlayerSliding(px, py, p.w, ph);
+      } else {
+        drawPlayerRunning(px, py, p.w, ph, p.animFrame, p.jumping);
+      }
+      ctx.restore();
+    }
+     
+    function drawPlayerRunning(px, py, pw, ph, frame, jumping) {
+      const cx = px + pw / 2;
+      const bodyGrad = ctx.createLinearGradient(px, py, px + pw, py + ph);
+      bodyGrad.addColorStop(0, '#f72585');
+      bodyGrad.addColorStop(1, '#7209b7');
+      ctx.fillStyle = bodyGrad;
+      roundRect(ctx, px + 4, py + ph*0.28, pw - 8, ph * 0.5, 6);
+      ctx.fill();
+     
+      ctx.fillStyle = '#f4a261';
+      ctx.beginPath();
+      ctx.arc(cx, py + ph*0.18, pw*0.28, 0, Math.PI*2);
+      ctx.fill();
+     
+      ctx.fillStyle = '#333';
+      ctx.beginPath();
+      ctx.arc(cx, py + ph*0.12, pw*0.26, Math.PI, 0);
+      ctx.fill();
+     
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(cx - 7, py + ph*0.15, 5, 4);
+      ctx.fillRect(cx + 2, py + ph*0.15, 5, 4);
+     
+      const legSwing = jumping ? 12 : Math.sin(frame * Math.PI / 1.5) * 8;
+      ctx.fillStyle = '#3a0ca3';
+      ctx.fillRect(cx - pw/2 + 2, py + ph*0.75, 6, ph*0.25 + legSwing);
+      ctx.fillRect(cx + 2, py + ph*0.75, 6, ph*0.25 - legSwing);
+     
       ctx.fillStyle = '#000';
-      for (let i = 0; i < 3; i++) {
-        ctx.fillRect(ox, oy + i * (ob.h/3), ob.w, ob.h/6);
-      }
- 
-      ctx.strokeStyle = '#ff6b00';
-      ctx.lineWidth = 2;
-      ctx.shadowBlur = 12;
-      ctx.shadowColor = '#ff6b00';
-      ctx.strokeRect(ox, oy, ob.w, ob.h);
-      ctx.shadowBlur = 0;
- 
-    } else if (ob.type === 'low_barrier') {
-      // Low barrier (slide under)
-      ctx.fillStyle = '#7209b7';
-      roundRect(ctx, ox, oy, ob.w, ob.h, 4);
-      ctx.fill();
- 
+      ctx.fillRect(cx - pw/2, py + ph - 4 + (jumping ? 0 : legSwing), 8, 5);
+      ctx.fillRect(cx, py + ph - 4 + (jumping ? 0 : -legSwing), 8, 5);
+     
       ctx.strokeStyle = COL.neon;
-      ctx.lineWidth = 1.5;
-      ctx.shadowBlur = 8;
-      ctx.shadowColor = COL.neon;
-      roundRect(ctx, ox, oy, ob.w, ob.h, 4);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, py + ph*0.35);
+      ctx.lineTo(cx, py + ph*0.7);
       ctx.stroke();
-      ctx.shadowBlur = 0;
- 
-      // Arrow hint
-      ctx.fillStyle = COL.neon;
-      ctx.font = 'bold 14px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('▼', ob.x, oy - 8);
     }
-    ctx.restore();
-  });
-}
- 
-// ── Coins ──────────────────────────────────────────────
-function drawCoins() {
-  state.coins_obj.forEach(c => {
-    ctx.save();
-    const glow = Math.sin(c.anim) * 0.3 + 0.7;
- 
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = COL.gold;
-    ctx.fillStyle = `hsl(45, 100%, ${50 + glow*15}%)`;
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, c.r, 0, Math.PI*2);
-    ctx.fill();
- 
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.beginPath();
-    ctx.arc(c.x - c.r*0.3, c.y - c.r*0.3, c.r*0.35, 0, Math.PI*2);
-    ctx.fill();
- 
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = 'rgba(0,0,0,0.4)';
-    ctx.font = `bold ${c.r}px Arial`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('$', c.x, c.y);
- 
-    ctx.restore();
-  });
-}
- 
-// ── Trails & Particles ─────────────────────────────────
-function drawTrails() {
-  state.trails.forEach(t => {
-    ctx.save();
-    ctx.globalAlpha = t.alpha * 0.4;
-    ctx.strokeStyle = t.col;
-    ctx.lineWidth = 3;
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = t.col;
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, t.r, 0, Math.PI*2);
-    ctx.stroke();
-    ctx.restore();
-  });
-}
- 
-function drawParticles() {
-  state.particles.forEach(p2 => {
-    ctx.save();
-    ctx.globalAlpha = p2.alpha;
-    ctx.fillStyle = p2.col;
-    ctx.shadowBlur = 8;
-    ctx.shadowColor = p2.col;
-    ctx.beginPath();
-    ctx.arc(p2.x, p2.y, p2.r, 0, Math.PI*2);
-    ctx.fill();
-    ctx.restore();
-  });
-}
- 
-// ── Helper ─────────────────────────────────────────────
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x+w, y, x+w, y+r);
-  ctx.lineTo(x+w, y+h-r);
-  ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
-  ctx.lineTo(x+r, y+h);
-  ctx.quadraticCurveTo(x, y+h, x, y+h-r);
-  ctx.lineTo(x, y+r);
-  ctx.quadraticCurveTo(x, y, x+r, y);
-  ctx.closePath();
-}
- 
-// ═══════════════════════════════════════════════════════
-//  GAME LOOP
-// ═══════════════════════════════════════════════════════
-function loop() {
-  update();
-  draw();
-  raf = requestAnimationFrame(loop);
-}
- 
-// ═══════════════════════════════════════════════════════
-//  GAME OVER / START / RESTART
-// ═══════════════════════════════════════════════════════
-function gameOver() {
-  state.running = false;
-  cancelAnimationFrame(raf);
- 
-  const hs = parseInt(localStorage.getItem('streetdash_hs') || '0');
-  const finalScore = state.score * state.multiplier;
-  if (finalScore > hs) localStorage.setItem('streetdash_hs', finalScore);
-  const newHs = Math.max(hs, finalScore);
- 
-  document.getElementById('final-score').textContent = finalScore;
-  document.getElementById('final-coins').textContent = state.coins;
-  document.getElementById('final-hs').textContent    = newHs;
- 
-  setTimeout(() => showScreen('gameover'), 400);
-}
- 
-function startGame() {
-  state = initState();
-  resize();
-  const p = state.player;
-  p.x = LANE_CENTERS[1];
-  p.y = GROUND_Y;
-  state.running = true;
-  showScreen('game');
-  cancelAnimationFrame(raf);
-  loop();
-}
- 
-// ═══════════════════════════════════════════════════════
-//  BUTTON WIRING
-// ═══════════════════════════════════════════════════════
-document.getElementById('btn-start').addEventListener('click', startGame);
-document.getElementById('btn-restart').addEventListener('click', startGame);
-document.getElementById('btn-menu').addEventListener('click', () => {
-  cancelAnimationFrame(raf);
-  showScreen('start');
-  updateHsDisplay();
-});
- 
-document.getElementById('pause-btn').addEventListener('click', () => {
-  if (!state?.running) return;
-  state.paused = !state.paused;
-  document.getElementById('pause-btn').textContent = state.paused ? '▶' : '⏸';
-  if (!state.paused) loop();
-});
- 
-function updateHsDisplay() {
-  const hs = localStorage.getItem('streetdash_hs') || '0';
-  document.getElementById('hs-value').textContent = hs;
-}
- 
-// Init
-updateHsDisplay();
-showScreen('start');
- 
+     
+    function drawPlayerSliding(px, py, pw, ph) {
+      const cx = px + pw/2;
+      const bodyGrad = ctx.createLinearGradient(px, py, px+pw, py+ph);
+      bodyGrad.addColorStop(0,'#f72585');
+      bodyGrad.addColorStop(1,'#7209b7');
+      ctx.fillStyle = bodyGrad;
+      roundRect(ctx, px - 10, py, pw * 1.4, ph, 8);
+      ctx.fill();
+     
+      ctx.fillStyle = '#f4a261';
+      ctx.beginPath();
+      ctx.arc(cx + pw*0.3, py + ph*0.4, pw*0.25, 0, Math.PI*2);
+      ctx.fill();
+     
+      ctx.fillStyle = '#222';
+      ctx.fillRect(cx + pw*0.35, py + ph*0.3, 3, 3);
+    }
+     
+    function drawObstacles() {
+      state.obstacles.forEach(ob => {
+        const oy = ob.y - ob.h;
+        const ox = ob.x - ob.w/2;
+     
+        ctx.save();
+        if (ob.type === 'train') {
+          const grad = ctx.createLinearGradient(ox, oy, ox+ob.w, oy+ob.h);
+          grad.addColorStop(0, '#2d2d4e');
+          grad.addColorStop(1, '#1a1a35');
+          ctx.fillStyle = grad;
+          roundRect(ctx, ox, oy, ob.w, ob.h, 6);
+          ctx.fill();
+     
+          ctx.strokeStyle = COL.neon2;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(ox, oy, ob.w, ob.h);
+     
+          ctx.fillStyle = 'rgba(0,245,212,0.25)';
+          for (let i = 0; i < 3; i++) {
+            ctx.fillRect(ox + 8 + i * 26, oy + 12, 18, 14);
+          }
+        } else if (ob.type === 'barrier') {
+          ctx.fillStyle = '#ff6b00';
+          ctx.fillRect(ox, oy, ob.w, ob.h);
+          ctx.fillStyle = '#000';
+          ctx.fillRect(ox, oy + 10, ob.w, 10);
+          ctx.fillRect(ox, oy + 30, ob.w, 10);
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(ox, oy, ob.w, ob.h);
+        } else if (ob.type === 'low_barrier') {
+          ctx.fillStyle = '#7209b7';
+          roundRect(ctx, ox, oy, ob.w, ob.h, 4);
+          ctx.fill();
+          ctx.strokeStyle = COL.neon;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(ox, oy, ob.w, ob.h);
+          
+          ctx.fillStyle = COL.neon;
+          ctx.font = '10px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText('SLIDE', ob.x, oy - 4);
+        }
+        ctx.restore();
+      });
+    }
+     
+    function drawCoins() {
+      state.coins_obj.forEach(c => {
+        ctx.save();
+        const glow = Math.sin(c.anim) * 0.2 + 0.8;
+     
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = COL.gold;
+        ctx.fillStyle = `hsl(45, 100%, ${50 + glow*12}%)`;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.r, 0, Math.PI*2);
+        ctx.fill();
+     
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.font = `bold ${c.r*1.1}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('$', c.x, c.y + 0.5);
+        ctx.restore();
+      });
+    }
+     
+    function drawTrails() {
+      state.trails.forEach(t => {
+        ctx.save();
+        ctx.globalAlpha = t.alpha * 0.35;
+        ctx.strokeStyle = t.col;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, t.r, 0, Math.PI*2);
+        ctx.stroke();
+        ctx.restore();
+      });
+    }
+     
+    function drawParticles() {
+      state.particles.forEach(p2 => {
+        ctx.save();
+        ctx.globalAlpha = p2.alpha;
+        ctx.fillStyle = p2.col;
+        ctx.beginPath();
+        ctx.arc(p2.x, p2.y, p2.r, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      });
+    }
+     
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+      ctx.lineTo(x+w, y+h-r);
+      ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+      ctx.lineTo(x+r, y+h);
+      ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+      ctx.lineTo(x, y+r);
+      ctx.quadraticCurveTo(x, y, x+r, y);
+      ctx.closePath();
+    }
+     
+    function loop() {
+      update();
+      draw();
+      raf = requestAnimationFrame(loop);
+    }
+     
+    // ═══════════════════════════════════════════════════════
+    //  ESTADOS DE JOGO & LOCALSTORAGE
+    // ═══════════════════════════════════════════════════════
+    function gameOver() {
+      state.running = false;
+      cancelAnimationFrame(raf);
+     
+      const hs = parseInt(localStorage.getItem('streetdash_hs') || '0');
+      const finalScore = state.score * state.multiplier;
+      if (finalScore > hs) localStorage.setItem('streetdash_hs', finalScore);
+      const newHs = Math.max(hs, finalScore);
+     
+      document.getElementById('final-score').textContent = finalScore;
+      document.getElementById('final-coins').textContent = state.coins;
+      document.getElementById('final-hs').textContent    = newHs;
+     
+      setTimeout(() => showScreen('gameover'), 300);
+    }
+     
+    function startGame() {
+      state = initState();
+      resize();
+      state.running = true;
+      showScreen('game');
+      cancelAnimationFrame(raf);
+      loop();
+    }
+     
+    // ── Interface Actions ──────────────────────────────────
+    document.getElementById('btn-start').addEventListener('click', startGame);
+    document.getElementById('btn-restart').addEventListener('click', startGame);
+    document.getElementById('btn-menu').addEventListener('click', () => {
+      cancelAnimationFrame(raf);
+      showScreen('start');
+      updateHsDisplay();
+    });
+     
+    document.getElementById('pause-btn').addEventListener('click', (e) => {
+      if (!state?.running) return;
+      state.paused = !state.paused;
+      document.getElementById('pause-btn').textContent = state.paused ? '▶' : '⏸';
+      if (!state.paused) loop();
+    });
+     
+    function updateHsDisplay() {
+      const hs = localStorage.getItem('streetdash_hs') || '0';
+      document.getElementById('hs-value').textContent = hs;
+    }
+     
+    // Setup Inicial
+    updateHsDisplay();
+    showScreen('start');
+  </script>
+</body>
+</html>
