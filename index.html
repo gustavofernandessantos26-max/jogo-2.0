@@ -64,7 +64,7 @@
       display: flex;
     }
 
-    #screen-start {
+    #screen-register, #screen-start {
       background: linear-gradient(135deg, #0d0221 0%, #1a0533 100%);
     }
 
@@ -96,16 +96,44 @@
     }
 
     h2 {
-      font-size: 2.5rem;
+      font-size: 2.2rem;
       color: var(--neon-pink);
       text-shadow: 0 0 10px var(--neon-pink);
-      margin-bottom: 20px;
+      margin-bottom: 25px;
+      text-transform: uppercase;
     }
 
     p {
       font-size: 1.2rem;
       margin-bottom: 25px;
       color: #9d8ec2;
+    }
+
+    /* Formulário de Registro */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      min-width: 300px;
+      margin-bottom: 20px;
+    }
+
+    input[type="text"] {
+      background: rgba(13, 2, 33, 0.7);
+      border: 2px solid var(--neon-pink);
+      padding: 14px;
+      color: var(--white);
+      font-size: 1.1rem;
+      border-radius: 4px;
+      text-align: center;
+      outline: none;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 10px rgba(247, 37, 133, 0.2);
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 20px rgba(0, 245, 212, 0.4);
     }
 
     /* Botões */
@@ -208,13 +236,24 @@
 
   <div id="game-container">
     
-    <div id="screen-start" class="screen active">
+    <div id="screen-register" class="screen">
       <h1>Street Dash</h1>
+      <h2>Criar Conta</h2>
+      <div class="form-group">
+        <input type="text" id="username-input" placeholder="NOME DO RUNNER" maxlength="12">
+        <button id="btn-save-account">Conectar à Rede</button>
+      </div>
+      <p style="font-size: 0.9rem; color: #5c4d80;">Sua pontuação ficará salva neste codinome.</p>
+    </div>
+
+    <div id="screen-start" class="screen">
+      <h1>Street Dash</h1>
+      <p>Bem-vindo, <span id="player-greeting" style="color: var(--neon-pink); font-weight:bold;">Runner</span></p>
       <p>High Score: <span id="hs-value" style="color: var(--neon-cyan); font-weight:bold;">0</span></p>
       <button id="btn-start">Jogar</button>
       <p style="font-size: 0.9rem; margin-top: 30px; color: #66568a;">
-        Controles: W / S ou Setas (Cima/Baixo) para Pular/Deslizar<br>
-        A / D ou Setas (Esquerda/Direita) para Mudar de Pista
+        Controles: W / S ou Setas (Cima/Baixo) para Mudar de Pista<br>
+        Espaço para Pular | A / D ou Setas (Esquerda/Direita) para Deslizar
       </p>
     </div>
 
@@ -246,9 +285,10 @@
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx    = canvas.getContext('2d');
-     
+      
     // ── Screens ──────────────────────────────────────────
     const screens = {
+      register: document.getElementById('screen-register'),
       start:    document.getElementById('screen-start'),
       game:     document.getElementById('screen-game'),
       gameover: document.getElementById('screen-gameover'),
@@ -257,21 +297,21 @@
       Object.values(screens).forEach(s => s.classList.remove('active'));
       screens[name].classList.add('active');
     }
-     
+      
     // ── HUD refs ─────────────────────────────────────────
     const scoreDisplay = document.getElementById('score-display');
     const coinsDisplay = document.getElementById('coins-display');
     const multDisplay  = document.getElementById('multiplier-display');
-     
+      
     // ── Constants ─────────────────────────────────────────
     const LANES        = 3;
-    const LANE_W       = 65; // Espaçamento vertical entre pistas
+    const LANE_W       = 65; 
     const BASE_SPEED   = 6;
     const GRAVITY      = 0.8;
     const JUMP_FORCE   = -14;
     const SLIDE_FRAMES = 40;
     const ANIM_RATE    = 6;      
-     
+      
     // ── Palette ──────────────────────────────────────────
     const COL = {
       sky1:'#0d0221', sky2:'#1a0533',
@@ -282,10 +322,10 @@
       white:'#eef1ff',
       shadow:'rgba(0,0,0,0.5)',
     };
-     
+      
     // ── Game State ─────────────────────────────────────────
     let state, raf;
-     
+      
     function initState() {
       return {
         running:   false,
@@ -296,13 +336,13 @@
         speed:     BASE_SPEED,
         frame:     0,
         spawnTimer:0,
-     
+      
         player: {
-          lane:    1,          // 0 top | 1 center | 2 bottom
+          lane:     1,          
           x:       0,          
           y:       0,          
           vy:      0,
-          baseY:   0,          // Chão dinâmico da pista atual
+          baseY:   0,          
           onGround:true,
           jumping: false,
           sliding: false,
@@ -313,25 +353,25 @@
           animTimer:  0,
           w: 40, h: 68,
         },
-     
+      
         obstacles: [],
         coins_obj: [],
         particles: [],
         bgLayers:  initBgLayers(),
         trails:    [],
-     
+      
         multiplier: 1,
         multTimer:  0,
       };
     }
-     
+      
     function initBgLayers() {
       return [
         { z:0.15, y: 0, items: randomBuildings(15, 0.15) },
         { z:0.4,  y: 0, items: randomBuildings(10, 0.4) },
       ];
     }
-     
+      
     function randomBuildings(count, z) {
       const arr = [];
       for (let i = 0; i < count; i++) {
@@ -345,37 +385,36 @@
       }
       return arr;
     }
-     
+      
     // ═══════════════════════════════════════════════════════
     //  CANVAS RESIZE & TRACK HEIGHT LAYOUT
     // ═══════════════════════════════════════════════════════
     let W, H, LANE_CENTERS;
-     
+      
     function resize() {
       const container = screens.game;
       W = canvas.width  = container.clientWidth  || window.innerWidth;
       H = canvas.height = container.clientHeight || window.innerHeight;
-     
-      // Pistas horizontais empilhadas no terço inferior da tela
+      
       const horizonY = H * 0.65;
       LANE_CENTERS = [horizonY, horizonY + LANE_W, horizonY + LANE_W * 2];
-     
+      
       if (state) {
         const p = state.player;
-        p.x = W * 0.22; // Jogador fixo a 22% da esquerda
+        p.x = W * 0.22; 
         p.baseY = LANE_CENTERS[p.lane];
         if (p.onGround) p.y = p.baseY;
       }
     }
-     
+      
     window.addEventListener('resize', resize);
-    setTimeout(resize, 50); // Garante dimensões corretas após render do DOM
-     
+    setTimeout(resize, 50); 
+      
     // ═══════════════════════════════════════════════════════
     //  INPUT
     // ═══════════════════════════════════════════════════════
     let touchStartX = 0, touchStartY = 0;
-     
+      
     document.addEventListener('keydown', e => {
       if (!state?.running || state.paused) return;
       if (e.key==='ArrowUp'    || e.key==='w') changeLane(-1);
@@ -383,25 +422,25 @@
       if (e.key===' '          || e.key==='Spacebar') jump();
       if (e.key==='ArrowLeft'  || e.key==='a' || e.key==='ArrowRight' || e.key==='d') slide();
     });
-     
+      
     canvas.addEventListener('touchstart', e => {
       touchStartX = e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
     }, {passive:true});
-     
+      
     canvas.addEventListener('touchend', e => {
       if (!state?.running || state.paused) return;
       const dx = e.changedTouches[0].clientX - touchStartX;
       const dy = e.changedTouches[0].clientY - touchStartY;
       if (Math.abs(dy) > Math.abs(dx)) {
-        if (dy < -30) changeLane(-1); // Deslizar para cima muda pista
-        if (dy >  30) changeLane(+1); // Deslizar para baixo muda pista
+        if (dy < -30) changeLane(-1); 
+        if (dy >  30) changeLane(+1); 
       } else {
         if (dx >  30) jump();
         if (dx < -30) slide();
       }
     }, {passive:true});
-     
+      
     function changeLane(dir) {
       const p = state.player;
       const nl = p.lane + dir;
@@ -415,7 +454,7 @@
         spawnTrail(p.x, p.y - p.h/2, dir < 0 ? COL.neon : COL.neon2);
       }
     }
-     
+      
     function jump() {
       const p = state.player;
       if (p.onGround && !p.sliding) {
@@ -425,19 +464,19 @@
         spawnParticles(p.x, p.y, COL.neon, 8);
       }
     }
-     
+      
     function slide() {
       const p = state.player;
       if (!p.onGround || p.sliding) return;
       p.sliding   = true;
       p.slideTimer = SLIDE_FRAMES;
     }
-     
+      
     // ═══════════════════════════════════════════════════════
-    //  SPAWNING (Obstáculos vêm da direita)
+    //  SPAWNING
     // ═══════════════════════════════════════════════════════
     const OBSTACLE_TYPES = ['train','barrier','low_barrier','double_barrier'];
-     
+      
     function spawnObstacle() {
       const type = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
       const lane = Math.floor(Math.random() * LANES);
@@ -456,7 +495,7 @@
      
       state.obstacles.push({ lane, x: spawnX, y: LANE_CENTERS[lane], w, h, type, canSlide, lowH });
     }
-     
+      
     function spawnCoin() {
       const lane = Math.floor(Math.random() * LANES);
       const count = 3 + Math.floor(Math.random() * 4);
@@ -473,11 +512,11 @@
         });
       }
     }
-     
+      
     function spawnTrail(x, y, col) {
       state.trails.push({ x, y, alpha:1, col, r: 14 });
     }
-     
+      
     function spawnParticles(x, y, col, n=12) {
       for (let i=0; i<n; i++) {
         const angle = (Math.PI * 2 / n) * i + Math.random()*0.3;
@@ -490,12 +529,12 @@
         });
       }
     }
-     
+      
     // ═══════════════════════════════════════════════════════
     //  COLLISION
     // ═══════════════════════════════════════════════════════
     function checkCollision(p, ob) {
-      if (p.lane !== ob.lane) return false; // Ignora se estiver em pistas verticais diferentes
+      if (p.lane !== ob.lane) return false; 
       
       const ph = p.sliding ? p.h * 0.45 : p.h;
       const py = p.y - ph;
@@ -511,14 +550,14 @@
         py + ph > oy
       );
     }
-     
+      
     function checkCoin(p, c) {
       if (p.lane !== c.lane) return false;
       const dx = p.x - c.x;
       const dy = (p.y - p.h/2) - c.y;
       return Math.sqrt(dx*dx + dy*dy) < p.w/2 + c.r;
     }
-     
+      
     // ═══════════════════════════════════════════════════════
     //  MAIN UPDATE LOOP
     // ═══════════════════════════════════════════════════════
@@ -529,17 +568,14 @@
       state.distance += state.speed;
       state.score = Math.floor(state.distance / 12);
      
-      // Aceleração progressiva
       state.speed = BASE_SPEED + Math.floor(state.distance / 2500) * 0.6;
      
-      // Multiplicador temporal
       state.multTimer++;
       if (state.multTimer > 300) {
         state.multTimer = 0;
         state.multiplier = Math.min(state.multiplier + 1, 5);
       }
      
-      // Física do Pulo
       if (!p.onGround) {
         p.vy += GRAVITY;
         p.y  += p.vy;
@@ -552,26 +588,22 @@
         }
       }
      
-      // Deslizamento
       if (p.sliding) {
         p.slideTimer--;
         if (p.slideTimer <= 0) p.sliding = false;
       }
      
-      // Invulnerabilidade pós-hit piscante
       if (p.invincible) {
         p.invTimer--;
         if (p.invTimer <= 0) p.invincible = false;
       }
      
-      // Animação do Sprite do Player
       p.animTimer++;
       if (p.animTimer >= ANIM_RATE) {
         p.animTimer = 0;
         p.animFrame = (p.animFrame + 1) % 4;
       }
      
-      // Parallax do Background Ciberpunk
       state.bgLayers.forEach(layer => {
         layer.items.forEach(b => {
           b.x -= state.speed * layer.z;
@@ -579,7 +611,6 @@
         });
       });
      
-      // Gerador de fluxo procedural (Spawn)
       state.spawnTimer++;
       const interval = Math.max(50, 120 - Math.floor(state.distance / 2000) * 8);
       if (state.spawnTimer > interval) {
@@ -588,11 +619,10 @@
         else if (Math.random() < 0.5) spawnCoin();
       }
      
-      // Processar Obstáculos
       state.obstacles = state.obstacles.filter(ob => {
         ob.x -= state.speed;
         if (!p.invincible && checkCollision(p, ob)) {
-          if (ob.canSlide && p.sliding) return true; // Passou raspando por baixo!
+          if (ob.canSlide && p.sliding) return true; 
           
           p.invincible = true;
           p.invTimer   = 60;
@@ -603,7 +633,6 @@
         return ob.x + ob.w > -50;
       });
      
-      // Processar Moedas
       state.coins_obj = state.coins_obj.filter(c => {
         c.x -= state.speed;
         c.anim += 0.1;
@@ -616,7 +645,6 @@
         return c.x + c.r > -20;
       });
      
-      // Efeitos Visuais (Rastros e Partículas)
       state.trails = state.trails.filter(t => {
         t.alpha -= 0.05;
         t.r += 1.5;
@@ -631,12 +659,11 @@
         return p2.alpha > 0;
       });
      
-      // Atualização Dinâmica da HUD
       scoreDisplay.textContent = state.score * state.multiplier;
       coinsDisplay.textContent = state.coins;
       multDisplay.textContent  = `x${state.multiplier}`;
     }
-     
+      
     // ═══════════════════════════════════════════════════════
     //  DRAW ENGINE
     // ═══════════════════════════════════════════════════════
@@ -650,22 +677,21 @@
       drawPlayer();
       drawParticles();
     }
-     
+      
     function drawBackground() {
       const sky = ctx.createLinearGradient(0, 0, 0, LANE_CENTERS[0]);
       sky.addColorStop(0, COL.sky1);
       sky.addColorStop(1, COL.sky2);
       ctx.fillStyle = sky;
       ctx.fillRect(0, 0, W, LANE_CENTERS[0]);
-     
+      
       drawBuildings(state.bgLayers[0], 0.35);
       drawBuildings(state.bgLayers[1], 0.65);
-     
-      // Base asfáltica das pistas
+      
       ctx.fillStyle = '#14142b';
       ctx.fillRect(0, LANE_CENTERS[0] - 40, W, H - LANE_CENTERS[0] + 40);
     }
-     
+      
     function drawBuildings(layer, alpha) {
       ctx.save();
       ctx.globalAlpha = alpha;
@@ -692,9 +718,8 @@
       });
       ctx.restore();
     }
-     
+      
     function drawTrack() {
-      // Desenha as três linhas de trilho neon baseadas no Y das pistas
       LANE_CENTERS.forEach((ly, index) => {
         ctx.fillStyle = COL.track;
         ctx.fillRect(0, ly - 5, W, 10);
@@ -708,8 +733,7 @@
         ctx.lineTo(W, ly);
         ctx.stroke();
         ctx.shadowBlur = 0;
-     
-        // Linhas estéticas de velocidade nos trilhos
+      
         const offset = (state?.frame || 0) * (state?.speed || 0) * 0.6 % 60;
         ctx.strokeStyle = 'rgba(255,255,255,0.15)';
         ctx.lineWidth = 2;
@@ -721,22 +745,22 @@
         }
       });
     }
-     
+      
     function drawPlayer() {
       if (!state) return;
       const p = state.player;
       const ph = p.sliding ? p.h * 0.45 : p.h;
       const py = p.y - ph;
       const px = p.x - p.w / 2;
-     
+      
       if (p.invincible && Math.floor(state.frame / 4) % 2 === 0) return;
-     
+      
       ctx.save();
       ctx.fillStyle = COL.shadow;
       ctx.beginPath();
       ctx.ellipse(p.x, p.y + 2, p.w/1.4, 5, 0, 0, Math.PI * 2);
       ctx.fill();
-     
+      
       if (p.sliding) {
         drawPlayerSliding(px, py, p.w, ph);
       } else {
@@ -744,7 +768,7 @@
       }
       ctx.restore();
     }
-     
+      
     function drawPlayerRunning(px, py, pw, ph, frame, jumping) {
       const cx = px + pw / 2;
       const bodyGrad = ctx.createLinearGradient(px, py, px + pw, py + ph);
@@ -753,30 +777,30 @@
       ctx.fillStyle = bodyGrad;
       roundRect(ctx, px + 4, py + ph*0.28, pw - 8, ph * 0.5, 6);
       ctx.fill();
-     
+      
       ctx.fillStyle = '#f4a261';
       ctx.beginPath();
       ctx.arc(cx, py + ph*0.18, pw*0.28, 0, Math.PI*2);
       ctx.fill();
-     
+      
       ctx.fillStyle = '#333';
       ctx.beginPath();
       ctx.arc(cx, py + ph*0.12, pw*0.26, Math.PI, 0);
       ctx.fill();
-     
+      
       ctx.fillStyle = '#fff';
       ctx.fillRect(cx - 7, py + ph*0.15, 5, 4);
       ctx.fillRect(cx + 2, py + ph*0.15, 5, 4);
-     
+      
       const legSwing = jumping ? 12 : Math.sin(frame * Math.PI / 1.5) * 8;
       ctx.fillStyle = '#3a0ca3';
       ctx.fillRect(cx - pw/2 + 2, py + ph*0.75, 6, ph*0.25 + legSwing);
       ctx.fillRect(cx + 2, py + ph*0.75, 6, ph*0.25 - legSwing);
-     
+      
       ctx.fillStyle = '#000';
       ctx.fillRect(cx - pw/2, py + ph - 4 + (jumping ? 0 : legSwing), 8, 5);
       ctx.fillRect(cx, py + ph - 4 + (jumping ? 0 : -legSwing), 8, 5);
-     
+      
       ctx.strokeStyle = COL.neon;
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -784,7 +808,7 @@
       ctx.lineTo(cx, py + ph*0.7);
       ctx.stroke();
     }
-     
+      
     function drawPlayerSliding(px, py, pw, ph) {
       const cx = px + pw/2;
       const bodyGrad = ctx.createLinearGradient(px, py, px+pw, py+ph);
@@ -793,21 +817,21 @@
       ctx.fillStyle = bodyGrad;
       roundRect(ctx, px - 10, py, pw * 1.4, ph, 8);
       ctx.fill();
-     
+      
       ctx.fillStyle = '#f4a261';
       ctx.beginPath();
       ctx.arc(cx + pw*0.3, py + ph*0.4, pw*0.25, 0, Math.PI*2);
       ctx.fill();
-     
+      
       ctx.fillStyle = '#222';
       ctx.fillRect(cx + pw*0.35, py + ph*0.3, 3, 3);
     }
-     
+      
     function drawObstacles() {
       state.obstacles.forEach(ob => {
         const oy = ob.y - ob.h;
         const ox = ob.x - ob.w/2;
-     
+      
         ctx.save();
         if (ob.type === 'train') {
           const grad = ctx.createLinearGradient(ox, oy, ox+ob.w, oy+ob.h);
@@ -816,11 +840,11 @@
           ctx.fillStyle = grad;
           roundRect(ctx, ox, oy, ob.w, ob.h, 6);
           ctx.fill();
-     
+      
           ctx.strokeStyle = COL.neon2;
           ctx.lineWidth = 2;
           ctx.strokeRect(ox, oy, ob.w, ob.h);
-     
+      
           ctx.fillStyle = 'rgba(0,245,212,0.25)';
           for (let i = 0; i < 3; i++) {
             ctx.fillRect(ox + 8 + i * 26, oy + 12, 18, 14);
@@ -850,19 +874,19 @@
         ctx.restore();
       });
     }
-     
+      
     function drawCoins() {
       state.coins_obj.forEach(c => {
         ctx.save();
         const glow = Math.sin(c.anim) * 0.2 + 0.8;
-     
+      
         ctx.shadowBlur = 6;
         ctx.shadowColor = COL.gold;
         ctx.fillStyle = `hsl(45, 100%, ${50 + glow*12}%)`;
         ctx.beginPath();
         ctx.arc(c.x, c.y, c.r, 0, Math.PI*2);
         ctx.fill();
-     
+      
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
         ctx.font = `bold ${c.r*1.1}px Arial`;
         ctx.textAlign = 'center';
@@ -871,7 +895,7 @@
         ctx.restore();
       });
     }
-     
+      
     function drawTrails() {
       state.trails.forEach(t => {
         ctx.save();
@@ -884,7 +908,7 @@
         ctx.restore();
       });
     }
-     
+      
     function drawParticles() {
       state.particles.forEach(p2 => {
         ctx.save();
@@ -896,7 +920,7 @@
         ctx.restore();
       });
     }
-     
+      
     function roundRect(ctx, x, y, w, h, r) {
       ctx.beginPath();
       ctx.moveTo(x + r, y);
@@ -910,32 +934,32 @@
       ctx.quadraticCurveTo(x, y, x+r, y);
       ctx.closePath();
     }
-     
+      
     function loop() {
       update();
       draw();
       raf = requestAnimationFrame(loop);
     }
-     
+      
     // ═══════════════════════════════════════════════════════
-    //  ESTADOS DE JOGO & LOCALSTORAGE
+    //  ESTADOS DE JOGO, CONTAS & LOCALSTORAGE
     // ═══════════════════════════════════════════════════════
     function gameOver() {
       state.running = false;
       cancelAnimationFrame(raf);
-     
+      
       const hs = parseInt(localStorage.getItem('streetdash_hs') || '0');
       const finalScore = state.score * state.multiplier;
       if (finalScore > hs) localStorage.setItem('streetdash_hs', finalScore);
       const newHs = Math.max(hs, finalScore);
-     
+      
       document.getElementById('final-score').textContent = finalScore;
       document.getElementById('final-coins').textContent = state.coins;
       document.getElementById('final-hs').textContent    = newHs;
-     
+      
       setTimeout(() => showScreen('gameover'), 300);
     }
-     
+      
     function startGame() {
       state = initState();
       resize();
@@ -944,7 +968,7 @@
       cancelAnimationFrame(raf);
       loop();
     }
-     
+      
     // ── Interface Actions ──────────────────────────────────
     document.getElementById('btn-start').addEventListener('click', startGame);
     document.getElementById('btn-restart').addEventListener('click', startGame);
@@ -953,22 +977,48 @@
       showScreen('start');
       updateHsDisplay();
     });
-     
+      
     document.getElementById('pause-btn').addEventListener('click', (e) => {
       if (!state?.running) return;
       state.paused = !state.paused;
       document.getElementById('pause-btn').textContent = state.paused ? '▶' : '⏸';
       if (!state.paused) loop();
     });
-     
+
+    // Ação do botão de salvar conta
+    document.getElementById('btn-save-account').addEventListener('click', () => {
+      const input = document.getElementById('username-input');
+      const username = input.value.trim();
+
+      if (username === "") {
+        input.style.borderColor = "red";
+        return;
+      }
+
+      localStorage.setItem('streetdash_user', username);
+      loadAccountData();
+    });
+      
     function updateHsDisplay() {
       const hs = localStorage.getItem('streetdash_hs') || '0';
       document.getElementById('hs-value').textContent = hs;
     }
-     
-    // Setup Inicial
-    updateHsDisplay();
-    showScreen('start');
+
+    // Gerenciador inicial de fluxo de telas e contas
+    function loadAccountData() {
+      const savedUser = localStorage.getItem('streetdash_user');
+      
+      if (savedUser) {
+        document.getElementById('player-greeting').textContent = savedUser + " ⚡";
+        updateHsDisplay();
+        showScreen('start');
+      } else {
+        showScreen('register');
+      }
+    }
+      
+    // Setup Inicial ao ligar a aplicação
+    loadAccountData();
   </script>
 </body>
 </html>
