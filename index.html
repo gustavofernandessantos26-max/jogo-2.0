@@ -325,7 +325,7 @@
             </tr>
           </thead>
           <tbody id="leaderboard-rows">
-            </tbody>
+          </tbody>
         </table>
       </div>
 
@@ -847,6 +847,7 @@
       ctx.restore();
     }
       
+    // Desenho procedural simplificado do Runner Correndo
     function drawPlayerRunning(px, py, pw, ph, frame, jumping) {
       const cx = px + pw / 2;
       const bodyGrad = ctx.createLinearGradient(px, py, px + pw, py + ph);
@@ -887,6 +888,7 @@
       ctx.stroke();
     }
       
+    // Desenho procedural do Runner Deslizando
     function drawPlayerSliding(px, py, pw, ph) {
       const cx = px + pw/2;
       const bodyGrad = ctx.createLinearGradient(px, py, px+pw, py+ph);
@@ -1034,15 +1036,12 @@
       const stored = localStorage.getItem('streetdash_leaderboard');
       if (stored) return JSON.parse(stored);
       
-      // Se não existir, inicializa com a base de bots padrão
       localStorage.setItem('streetdash_leaderboard', JSON.stringify(BASE_BOTS));
       return BASE_BOTS;
     }
 
     function updateLeaderboard(playerName, playerScore) {
       let currentLeaderboard = getLeaderboard();
-      
-      // Procura se o jogador já está na lista global de recordes
       let playerEntry = currentLeaderboard.find(item => item.name === playerName);
       
       if (playerEntry) {
@@ -1053,7 +1052,6 @@
         currentLeaderboard.push({ name: playerName, score: playerScore });
       }
 
-      // Organiza do maior score para o menor e pega os 7 melhores
       currentLeaderboard.sort((a, b) => b.score - a.score);
       currentLeaderboard = currentLeaderboard.slice(0, 7);
 
@@ -1065,7 +1063,7 @@
       const tbody = document.getElementById('leaderboard-rows');
       const currentPlayer = localStorage.getItem('streetdash_user');
       
-      tbody.innerHTML = ""; // Limpa registros antigos
+      tbody.innerHTML = ""; 
 
       leaderboard.forEach((row, index) => {
         const tr = document.createElement('tr');
@@ -1073,7 +1071,6 @@
         
         if (isPlayer) tr.classList.add('player-row');
 
-        // Formata posições de pódio (1º, 2º, 3º) com cores exclusivas
         let posDisplay = index + 1;
         if (index === 0) posDisplay = `<span class="pos-1">1º 🏆</span>`;
         else if (index === 1) posDisplay = `<span class="pos-2">2º 🥈</span>`;
@@ -1090,47 +1087,49 @@
     }
 
     // ═══════════════════════════════════════════════════════
-    //  ESTADOS DE JOGO, CONTAS & LOCALSTORAGE
+    //  ESTADOS DE JOGO, CONTAS & LOCALSTORAGE (COMPLETADO)
     // ═══════════════════════════════════════════════════════
     function gameOver() {
       state.running = false;
       cancelAnimationFrame(raf);
       
-      const hs = parseInt(localStorage.getItem('streetdash_hs') || '0');
-      const finalScore = state.score * state.multiplier;
       const playerName = localStorage.getItem('streetdash_user') || 'Runner';
-
-      if (finalScore > hs) {
-        localStorage.setItem('streetdash_hs', finalScore);
+      const finalScore = state.score * state.multiplier;
+      const currentHs  = parseInt(localStorage.getItem('streetdash_hs')) || 0;
+      
+      let newHs = currentHs;
+      if (finalScore > currentHs) {
+        newHs = finalScore;
+        localStorage.setItem('streetdash_hs', newHs);
       }
-      const newHs = Math.max(hs, finalScore);
       
-      // Atualiza a tabela global com a sua melhor pontuação
-      updateLeaderboard(playerName, newHs);
+      // Atualiza o placar e ranking global fictício
+      updateLeaderboard(playerName, finalScore);
       
+      // Insere os dados na tela de Game Over do DOM
       document.getElementById('final-score').textContent = finalScore;
       document.getElementById('final-coins').textContent = state.coins;
-      document.getElementById('final-hs').textContent    = newHs;
+      document.getElementById('final-hs').textContent = newHs;
       
-      setTimeout(() => showScreen('gameover'), 300);
+      showScreen('gameover');
     }
-      
-    function startGame() {
+
+    // ── INTERAÇÃO DE BOTÕES E FLUXO DE TELAS ────────────────
+    document.getElementById('btn-save-account').addEventListener('click', () => {
+      const input = document.getElementById('username-input');
+      const name = input.value.trim();
+      if (name) {
+        localStorage.setItem('streetdash_user', name);
+        checkUserAccount();
+      }
+    });
+
+    document.getElementById('btn-start').addEventListener('click', () => {
       state = initState();
       resize();
       state.running = true;
       showScreen('game');
-      cancelAnimationFrame(raf);
       loop();
-    }
-      
-    // ── Interface Actions ──────────────────────────────────
-    document.getElementById('btn-start').addEventListener('click', startGame);
-    document.getElementById('btn-restart').addEventListener('click', startGame);
-    document.getElementById('btn-menu').addEventListener('click', () => {
-      cancelAnimationFrame(raf);
-      showScreen('start');
-      updateHsDisplay();
     });
 
     document.getElementById('btn-view-leaderboard').addEventListener('click', () => {
@@ -1139,50 +1138,42 @@
     });
 
     document.getElementById('btn-back-menu').addEventListener('click', () => {
-      showScreen('start');
+      checkUserAccount();
     });
-      
-    document.getElementById('pause-btn').addEventListener('click', (e) => {
-      if (!state?.running) return;
+
+    document.getElementById('pause-btn').addEventListener('click', () => {
+      if (!state) return;
       state.paused = !state.paused;
       document.getElementById('pause-btn').textContent = state.paused ? '▶' : '⏸';
-      if (!state.paused) loop();
     });
 
-    document.getElementById('btn-save-account').addEventListener('click', () => {
-      const input = document.getElementById('username-input');
-      const username = input.value.trim();
-
-      if (username === "") {
-        input.style.borderColor = "red";
-        return;
-      }
-
-      localStorage.setItem('streetdash_user', username);
-      // Inicializa o player no leaderboard com 0 pontos de partida
-      updateLeaderboard(username, 0);
-      loadAccountData();
+    document.getElementById('btn-restart').addEventListener('click', () => {
+      state = initState();
+      resize();
+      state.running = true;
+      showScreen('game');
+      loop();
     });
-      
-    function updateHsDisplay() {
-      const hs = localStorage.getItem('streetdash_hs') || '0';
-      document.getElementById('hs-value').textContent = hs;
-    }
 
-    function loadAccountData() {
-      const savedUser = localStorage.getItem('streetdash_user');
-      
-      if (savedUser) {
-        document.getElementById('player-greeting').textContent = savedUser + " ⚡";
-        updateHsDisplay();
-        showScreen('start');
-      } else {
+    document.getElementById('btn-menu').addEventListener('click', () => {
+      checkUserAccount();
+    });
+
+    // Controla se o usuário vai para o registro ou direto para o Menu Principal
+    function checkUserAccount() {
+      const user = localStorage.getItem('streetdash_user');
+      if (!user) {
         showScreen('register');
+      } else {
+        document.getElementById('player-greeting').textContent = user;
+        const hs = localStorage.getItem('streetdash_hs') || 0;
+        document.getElementById('hs-value').textContent = hs;
+        showScreen('start');
       }
     }
-      
-    // Setup Inicial ao ligar a aplicação
-    loadAccountData();
+
+    // Ponto de entrada do Script ao carregar a página
+    checkUserAccount();
   </script>
 </body>
 </html>
