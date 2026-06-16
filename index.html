@@ -544,6 +544,7 @@
       if (!state) return;
       state.obstacles.forEach(ob => { if (ob.mesh) scene.remove(ob.mesh); });
       state.coins_obj.forEach(c => { if (c.mesh) scene.remove(c.mesh); });
+      state.particles.forEach(p => { if (p.mesh) scene.remove(p.mesh); });
     }
       
     // ── Resizing ──────────────────────────────────────────
@@ -656,7 +657,28 @@
       }
     }
 
-    function spawnParticles(x,y,col,n) {} // Otimizado no loop 3D
+    // Sistema de explosão de faíscas neon nativo
+    function spawnParticles(lane, xPos, colorHex, count = 12) {
+      for (let i = 0; i < count; i++) {
+        const pGeo = new THREE.BoxGeometry(0.18, 0.18, 0.18);
+        const pMat = new THREE.MeshBasicMaterial({ color: colorHex });
+        const pMesh = new THREE.Mesh(pGeo, pMat);
+        
+        // Converte coordenadas do Runner 2D dinamicamente para o espaço tridimensional
+        pMesh.position.x = (lane - 1) * 4.5 + (Math.random() - 0.5) * 0.6;
+        pMesh.position.z = -(xPos - state.player.x) * 0.35;
+        pMesh.position.y = 1.0 + (Math.random() - 0.5) * 1.2;
+        
+        scene.add(pMesh);
+        state.particles.push({
+          mesh: pMesh,
+          vx: (Math.random() - 0.5) * 0.15,
+          vy: Math.random() * 0.2,
+          vz: (Math.random() - 0.5) * 0.15,
+          life: 25 + Math.floor(Math.random() * 20)
+        });
+      }
+    }
       
     // ── Colisões 2D Matemáticas Ativas ──────────────────────────────────────────
     function checkCollision(p, ob) {
@@ -727,6 +749,7 @@
           if (ob.canSlide && p.sliding) return true; 
           p.invincible = true;
           p.invTimer   = 60;
+          spawnParticles(p.lane, p.x, 0xf72585, 25); // Faíscas rosa no impacto do Game Over
           gameOver();
           if (ob.mesh) scene.remove(ob.mesh);
           return false;
@@ -742,6 +765,7 @@
         if (!c.collected && checkCoin(p, c)) {
           c.collected = true;
           state.coins += 1 * state.multiplier;
+          spawnParticles(c.lane, c.x, 0xffd60a, 8); // Partículas douradas ao coletar moedas
           if (c.mesh) scene.remove(c.mesh);
           return false;
         }
@@ -749,13 +773,27 @@
         if (c.mesh) scene.remove(c.mesh);
         return false;
       });
+
+      // Atualização física das partículas na cena
+      state.particles = state.particles.filter(pParticle => {
+        pParticle.mesh.position.x += pParticle.vx;
+        pParticle.mesh.position.y += pParticle.vy;
+        pParticle.mesh.position.z += pParticle.vz;
+        pParticle.vy -= 0.006; // Gravidade própria da partícula
+        pParticle.life--;
+        if (pParticle.life <= 0) {
+          scene.remove(pParticle.mesh);
+          return false;
+        }
+        return true;
+      });
      
       scoreDisplay.textContent = state.score * state.multiplier;
       coinsDisplay.textContent = state.coins;
       multDisplay.textContent  = `x${state.multiplier}`;
     }
       
-    // ── Motor Gráfico de Renderização 3D (Substitui o Canvas 2D) ──────────────────────────
+    // ── Motor Gráfico de Renderização 3D ──────────────────────────
     function draw() {
       if (!state || !scene) return;
       const p = state.player;
