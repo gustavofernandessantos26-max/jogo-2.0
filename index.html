@@ -235,18 +235,18 @@
       };
     }
 
-    // BOB ESPONJA 3D - MELHORADO
+    // BOB ESPONJA 3D MELHORADO
     function createSpongeBob() {
       const group = new THREE.Group();
 
-      // === CABEÇA ===
+      // CABEÇA
       const headGeo = new THREE.SphereGeometry(0.9, 40, 40);
       const headMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.6, metalness: 0.05 });
       head = new THREE.Mesh(headGeo, headMat);
       head.position.set(0, 2.2, 0);
       group.add(head);
 
-      // === SOBRANCELHAS ===
+      // SOBRANCELHAS
       const browGeo = new THREE.BoxGeometry(0.32, 0.08, 0.15);
       const browMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
       const leftBrow = new THREE.Mesh(browGeo, browMat);
@@ -259,19 +259,18 @@
       rightBrow.rotation.z = 0.15;
       group.add(rightBrow);
 
-      // === OLHOS ===
+      // OLHOS
       const eyeGeo = new THREE.SphereGeometry(0.32, 28, 28);
       const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
       const leftEye = new THREE.Mesh(eyeGeo, eyeMat); leftEye.position.set(-0.38, 2.32, 0.82); group.add(leftEye);
       const rightEye = new THREE.Mesh(eyeGeo, eyeMat); rightEye.position.set(0.38, 2.32, 0.82); group.add(rightEye);
 
-      // Pupilas
       const pupilGeo = new THREE.SphereGeometry(0.14, 20, 20);
       const pupilMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
       const leftPupil = new THREE.Mesh(pupilGeo, pupilMat); leftPupil.position.set(-0.38, 2.32, 1.08); group.add(leftPupil);
       const rightPupil = new THREE.Mesh(pupilGeo, pupilMat); rightPupil.position.set(0.38, 2.32, 1.08); group.add(rightPupil);
 
-      // === SORRISO + DENTE ===
+      // SORRISO
       const smileGeo = new THREE.TorusGeometry(0.42, 0.07, 14, 28, Math.PI);
       const smileMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
       const smile = new THREE.Mesh(smileGeo, smileMat); smile.position.set(0, 1.9, 0.95); smile.rotation.x = -0.4; group.add(smile);
@@ -279,44 +278,41 @@
       const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.26, 0.14), new THREE.MeshStandardMaterial({ color: 0xeeeeee }));
       tooth.position.set(0, 1.76, 1.15); group.add(tooth);
 
-      // === CORPO + CAMISA BRANCA ===
+      // CORPO + CAMISA BRANCA
       const shirt = new THREE.Mesh(new THREE.BoxGeometry(1.42, 1.35, 1.0), new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.7 }));
       shirt.position.set(0, 1.05, 0); group.add(shirt);
 
       const body = new THREE.Mesh(new THREE.BoxGeometry(1.35, 1.25, 0.92), new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.55 }));
       body.position.set(0, 1.08, 0); group.add(body);
 
-      // === GRAVATA VERMELHA ===
+      // GRAVATA
       const tie = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.9, 0.15), new THREE.MeshStandardMaterial({ color: 0xcc0000 }));
       tie.position.set(0, 0.95, 0.55); group.add(tie);
 
-      // === CALÇA ===
+      // CALÇA
       const pants = new THREE.Mesh(new THREE.BoxGeometry(1.48, 0.95, 1.08), new THREE.MeshStandardMaterial({ color: 0x0066cc, roughness: 0.65 }));
       pants.position.set(0, 0.28, 0); group.add(pants);
 
-      // Cinto
       const belt = new THREE.Mesh(new THREE.BoxGeometry(1.58, 0.18, 1.18), new THREE.MeshStandardMaterial({ color: 0xcc0000 }));
       belt.position.set(0, 0.72, 0); group.add(belt);
 
-      // === BRAÇOS COM MÃOS ===
+      // BRAÇOS COM MÃOS
       const armGeo = new THREE.CylinderGeometry(0.18, 0.17, 0.95, 18);
       const armMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.55 });
       leftArm = new THREE.Mesh(armGeo, armMat); leftArm.position.set(-0.9, 1.15, 0); leftArm.rotation.z = 0.5; group.add(leftArm);
       rightArm = new THREE.Mesh(armGeo, armMat); rightArm.position.set(0.9, 1.15, 0); rightArm.rotation.z = -0.5; group.add(rightArm);
 
-      // Mãos
       const handGeo = new THREE.SphereGeometry(0.22, 16, 16);
       const handMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.6 });
       const leftHand = new THREE.Mesh(handGeo, handMat); leftHand.position.set(-1.25, 0.85, 0); group.add(leftHand);
       const rightHand = new THREE.Mesh(handGeo, handMat); rightHand.position.set(1.25, 0.85, 0); group.add(rightHand);
 
-      // === PERNAS ===
+      // PERNAS
       const legGeo = new THREE.CylinderGeometry(0.22, 0.19, 1.05, 18);
       const legMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.55 });
       leftLeg = new THREE.Mesh(legGeo, legMat); leftLeg.position.set(-0.42, -0.2, 0); group.add(leftLeg);
       rightLeg = new THREE.Mesh(legGeo, legMat); rightLeg.position.set(0.42, -0.2, 0); group.add(rightLeg);
 
-      // Sapatos
       const shoeMat = new THREE.MeshStandardMaterial({ color: 0x5c3317, roughness: 0.85 });
       const leftShoe = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.28, 0.72), shoeMat); leftShoe.position.set(-0.42, -0.72, 0.12); group.add(leftShoe);
       const rightShoe = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.28, 0.72), shoeMat); rightShoe.position.set(0.42, -0.72, 0.12); group.add(rightShoe);
@@ -372,7 +368,6 @@
         playerMesh.position.y = 0.35;
       }
 
-      // Efeito visual do Skate (Q)
       if (state.skateActive) {
         playerMesh.traverse(child => {
           if (child.material && child.material.color) {
@@ -395,7 +390,6 @@
       }
     }
 
-    // CIDADE CYBERPUNK
     function createBackgroundBuilding(x, z, width, height, color) {
       const group = new THREE.Group();
       const building = new THREE.Mesh(new THREE.BoxGeometry(width, height, 8), new THREE.MeshStandardMaterial({ color: color, roughness: 0.9 }));
@@ -403,7 +397,7 @@
       group.add(building);
 
       for (let i = 0; i < 6; i++) {
-        const windowColor = Math.random() > 0.5 ? 0x00f5d4 : 0xff2e88;
+        const windowColor = Math.random() > 0.5 ? 0x008877 : 0xaa2266;
         const win = new THREE.Mesh(new THREE.BoxGeometry(width * 0.7, 0.6, 0.3), new THREE.MeshBasicMaterial({ color: windowColor }));
         win.position.set(0, 1.5 + i * 2.2, 4.1);
         group.add(win);
@@ -438,7 +432,6 @@
       });
     }
 
-    // SPEED LINES
     function spawnSpeedLines() {
       if (!state || state.speed < 8) return;
       for (let i = 0; i < 3; i++) {
@@ -494,7 +487,6 @@
       });
     }
 
-    // OBSTÁCULOS
     function createObstacleMesh(type) {
       let mesh;
       if (type === 'train') {
@@ -635,7 +627,6 @@
       playSound('slide');
     }
 
-    // Ativar Skate (Q)
     function activateSkate() {
       if (!state || state.skateCooldown > 0 || state.skateActive) return;
 
@@ -776,7 +767,6 @@
         if (p.slideTimer <= 0) p.sliding = false;
       }
 
-      // Timers
       if (state.magnetActive && --state.magnetTimer <= 0) { state.magnetActive = false; pu.magnet.classList.remove('active'); }
       if (state.shieldActive && --state.shieldTimer <= 0) { state.shieldActive = false; pu.shield.classList.remove('active'); }
       if (state.speedBoostActive && --state.speedBoostTimer <= 0) { state.speedBoostActive = false; pu.speed.classList.remove('active'); }
@@ -785,14 +775,12 @@
       if (state.superJumpActive && --state.superJumpTimer <= 0) { state.superJumpActive = false; pu.superjump.classList.remove('active'); p.jumpForce = JUMP_FORCE; }
       if (state.coinRainActive && --state.coinRainTimer <= 0) { state.coinRainActive = false; pu.coinrain.classList.remove('active'); }
 
-      // Skate (Q)
       if (state.skateActive && --state.skateTimer <= 0) {
         state.skateActive = false;
         pu.skate.classList.remove('active');
       }
       if (state.skateCooldown > 0) state.skateCooldown--;
 
-      // Spawn
       state.spawnTimer++;
       const interval = Math.max(48, 115 - Math.floor(state.distance / 2200) * 4);
       if (state.spawnTimer > interval) {
@@ -803,7 +791,6 @@
         else spawnPowerup();
       }
 
-      // Obstáculos
       state.obstacles = state.obstacles.filter(ob => {
         ob.x -= state.speed * speedMultiplier;
 
@@ -835,7 +822,6 @@
         return false;
       });
 
-      // Camera Shake
       if (state.cameraShake > 0) {
         state.cameraShake--;
         camera.position.x = (Math.random() - 0.5) * (state.cameraShake * 0.09);
@@ -845,7 +831,6 @@
         camera.position.y = 5.4;
       }
 
-      // Moedas + Combo
       state.coins_obj = state.coins_obj.filter(c => {
         c.x -= state.speed * speedMultiplier;
         if (state.magnetActive) {
@@ -879,7 +864,6 @@
         return false;
       });
 
-      // Power-ups
       state.powerups = state.powerups.filter(puItem => {
         puItem.x -= state.speed * 0.92 * speedMultiplier;
         if (!puItem.collected && checkPowerup(p, puItem)) {
@@ -1098,7 +1082,7 @@
       scene.add(new THREE.DirectionalLight(0x00f5d4, 0.95));
       const pink = new THREE.DirectionalLight(0xff3388, 0.6); pink.position.set(-8, 14, -8); scene.add(pink);
 
-      const floor = new THREE.Mesh(new THREE.PlaneGeometry(26, 1400), new THREE.MeshStandardMaterial({ color: 0x10102a, roughness: 0.8 }));
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(26, 1400), new THREE.MeshStandardMaterial({ color: 0x0a0a1f, roughness: 0.9 }));
       floor.rotation.x = -Math.PI/2; floor.position.z = -320; scene.add(floor);
 
       // Trilhos neon removidos
