@@ -7,6 +7,10 @@
   <link rel="manifest" href="manifest.json">
   <title>STREET DASH — Bob Esponja Cyberpunk (Final)</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <!-- Firebase (para Leaderboard Online) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <style>
     :root {
       --bg-dark: #0a0118;
@@ -892,26 +896,97 @@
       osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
       osc.start(now); osc.stop(now + (type === 'hit' ? 0.6 : 0.38));
     }
-    const BASE_BOTS = [
-      { name: "SpongeBob⚡", score: 21500 }, { name: "PatrickRunner", score: 16800 },
-      { name: "SquidwardX", score: 12900 }, { name: "MrKrabsGold", score: 9800 }, { name: "SandyCyber", score: 7100 }
-    ];
-    function getLeaderboard() {
+    // ==================== FIREBASE LEADERBOARD (ONLINE) ====================
+    // Substitua pela sua configuração do Firebase
+    const firebaseConfig = {
+      apiKey: "SUA_API_KEY_AQUI",
+      authDomain: "SEU_PROJETO.firebaseapp.com",
+      projectId: "SEU_PROJECT_ID",
+      storageBucket: "SEU_PROJETO.appspot.com",
+      messagingSenderId: "SEU_SENDER_ID",
+      appId: "SEU_APP_ID"
+    };
+
+    let db = null;
+    let firebaseReady = false;
+
+    // Inicializa Firebase
+    function initFirebase() {
+      try {
+        if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+          firebase.initializeApp(firebaseConfig);
+          db = firebase.firestore();
+          firebaseReady = true;
+          console.log("%c[Firebase] Leaderboard online ativado!", "color:#00f5d4");
+        }
+      } catch(e) {
+        console.warn("[Firebase] Não foi possível inicializar. Usando leaderboard local.", e);
+        firebaseReady = false;
+      }
+    }
+
+    // Busca leaderboard do Firebase (ou local como fallback)
+    async function getLeaderboard() {
+      if (firebaseReady && db) {
+        try {
+          const snapshot = await db.collection("leaderboard")
+            .orderBy("score", "desc")
+            .limit(10)
+            .get();
+          
+          const onlineLB = [];
+          snapshot.forEach(doc => {
+            onlineLB.push(doc.data());
+          });
+          return onlineLB.length > 0 ? onlineLB : getLocalLeaderboard();
+        } catch(e) {
+          console.warn("Erro ao buscar leaderboard online, usando local.", e);
+          return getLocalLeaderboard();
+        }
+      }
+      return getLocalLeaderboard();
+    }
+
+    function getLocalLeaderboard() {
       const stored = localStorage.getItem('streetdash_final_leaderboard');
       if (stored) return JSON.parse(stored);
+      const BASE_BOTS = [
+        { name: "SpongeBob⚡", score: 21500 }, { name: "PatrickRunner", score: 16800 },
+        { name: "SquidwardX", score: 12900 }, { name: "MrKrabsGold", score: 9800 }, { name: "SandyCyber", score: 7100 }
+      ];
       localStorage.setItem('streetdash_final_leaderboard', JSON.stringify(BASE_BOTS));
       return BASE_BOTS;
     }
-    function updateLeaderboard(name, score) {
-      let lb = getLeaderboard();
+
+    // Salva score no Firebase (ou local)
+    async function updateLeaderboard(name, score) {
+      // Sempre salva localmente como backup
+      let lb = getLocalLeaderboard();
       let entry = lb.find(e => e.name === name);
-      if (entry) { if (score > entry.score) entry.score = score; }
-      else { lb.push({ name, score }); }
+      if (entry) {
+        if (score > entry.score) entry.score = score;
+      } else {
+        lb.push({ name, score });
+      }
       lb.sort((a,b) => b.score - a.score);
-      localStorage.setItem('streetdash_final_leaderboard', JSON.stringify(lb.slice(0,8)));
+      localStorage.setItem('streetdash_final_leaderboard', JSON.stringify(lb.slice(0,10)));
+
+      // Tenta salvar no Firebase
+      if (firebaseReady && db) {
+        try {
+          await db.collection("leaderboard").add({
+            name: name,
+            score: score,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          console.log("%c[Firebase] Score enviado para o ranking online!", "color:#00f5d4");
+        } catch(e) {
+          console.warn("Não foi possível enviar score para o Firebase.", e);
+        }
+      }
     }
-    function renderLeaderboardTable() {
-      const lb = getLeaderboard();
+    async function renderLeaderboardTable() {
+      const lb = await getLeaderboard();
       const tbody = document.getElementById('leaderboard-rows');
       const current = localStorage.getItem('streetdash_final_user');
       tbody.innerHTML = '';
@@ -934,7 +1009,7 @@
       const finalScore = Math.floor(state.score * state.multiplier * (state.doubleScoreActive ? 1.85 : 1));
       const hs = parseInt(localStorage.getItem('streetdash_final_hs')) || 0;
       if (finalScore > hs) localStorage.setItem('streetdash_final_hs', finalScore);
-      updateLeaderboard(name, finalScore);
+      updateLeaderboard(name, finalScore); // Já é async, mas não precisa de await aqui
       document.getElementById('final-score').textContent = finalScore;
       document.getElementById('final-coins').textContent = state.coins;
       document.getElementById('final-hs').textContent = Math.max(finalScore, hs);
@@ -954,7 +1029,10 @@
     document.getElementById('btn-start').addEventListener('click', startGame);
     document.getElementById('btn-restart').addEventListener('click', startGame);
     document.getElementById('btn-menu').addEventListener('click', () => { showScreen('start'); initMenu(); });
-    document.getElementById('btn-view-leaderboard').addEventListener('click', () => { renderLeaderboardTable(); showScreen('leaderboard'); });
+    document.getElementById('btn-view-leaderboard').addEventListener('click', async () => { 
+      await renderLeaderboardTable(); 
+      showScreen('leaderboard'); 
+    });
     document.getElementById('btn-back-menu').addEventListener('click', () => showScreen('start'));
     document.getElementById('pause-btn').addEventListener('click', () => {
       if (!state) return;
@@ -1023,6 +1101,7 @@
 
     init3D();
     setTimeout(resize, 100);
+    initFirebase(); // Inicia Firebase para leaderboard online
     initMenu();
   </script>
 </body>
