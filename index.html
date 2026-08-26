@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#00f5d4">
   <link rel="manifest" href="manifest.json">
-  <title>STREET DASH — Bob Esponja Cyberpunk (Final)</title>
+  <title>STREET DASH — Bob Esponja Cyberpunk (Corrigido)</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-  <!-- Firebase (para Leaderboard Online) -->
+  <!-- Firebase (para Leaderboard Online) - OPCIONAL -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <style>
@@ -95,6 +95,7 @@
     .leaderboard-table td { padding:16px 12px; border-bottom:1px solid rgba(255,255,255,0.08); }
     .leaderboard-table tr.player-row { background:rgba(0,245,212,0.22); color:#00f5d4; font-weight:bold; }
     .pos-1 { color:#ffd700; font-weight:bold; } .pos-2 { color:#ddd; } .pos-3 { color:#cd7f32; }
+    .leaderboard-loading { color:#00f5d4; font-style:italic; padding:20px; }
   </style>
 </head>
 <body>
@@ -128,7 +129,9 @@
       <div class="leaderboard-box">
         <table class="leaderboard-table">
           <thead><tr><th>Pos</th><th>Runner</th><th>Score</th></tr></thead>
-          <tbody id="leaderboard-rows"></tbody>
+          <tbody id="leaderboard-rows">
+            <tr><td colspan="3" class="leaderboard-loading">Carregando ranking...</td></tr>
+          </tbody>
         </table>
       </div>
       <button id="btn-back-menu" class="secondary">Voltar ao Menu</button>
@@ -208,6 +211,10 @@
     let playerTrail = [];
     let backgroundBuildings = [];
     let speedLines = [];
+    
+    // ✅ CORRIGIDO #4: Controlar múltiplos loops
+    let gameLoopActive = false;
+    
     function initState() {
       return {
         running: false, paused: false,
@@ -215,7 +222,7 @@
         player: { lane: 1, x: 0, y: 0, vy: 0, baseY: 0, onGround: true, jumping: false, sliding: false, slideTimer: 0, invincible: false, invTimer: 0, w: 50, h: 75, jumpForce: JUMP_FORCE },
         obstacles: [], coins_obj: [], particles: [], powerups: [],
         multiplier: 1, multTimer: 0,
-        combo: 0, maxCombo: 0,
+        combo: 0, maxCombo: 0, lastComboTime: 0,
         magnetActive: false, magnetTimer: 0,
         shieldActive: false, shieldTimer: 0,
         speedBoostActive: false, speedBoostTimer: 0,
@@ -298,7 +305,8 @@
       return group;
     }
     function animateSpongeBob() {
-      if (!playerMesh || !state) return;
+      // ✅ CORRIGIDO #6: Proteção contra playerMesh undefined
+      if (!playerMesh || !state || !head || !leftLeg || !rightLeg || !leftArm || !rightArm) return;
       const p = state.player;
       const t = state.frame * 0.19;
       const isFast = state.speed > 9;
@@ -501,6 +509,9 @@
       if (type === 'superjump') return new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.3, 5), new THREE.MeshStandardMaterial({ color: 0x00ffcc, metalness: 0.7, emissive: 0x00ffcc, emissiveIntensity: 0.4 }));
       if (type === 'coinrain') return new THREE.Mesh(new THREE.SphereGeometry(0.6, 20, 20), new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.8, emissive: 0xffd700, emissiveIntensity: 0.5 }));
       if (type === 'ghost') return new THREE.Mesh(new THREE.IcosahedronGeometry(0.7, 0), new THREE.MeshStandardMaterial({ color: 0x88ffcc, metalness: 0.3, emissive: 0x44ffaa, emissiveIntensity: 0.7, transparent: true, opacity: 0.75 }));
+      // ✅ CORRIGIDO #3: Adicionar mesh para 'skate'
+      if (type === 'skate') return new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.35, 0.9), new THREE.MeshStandardMaterial({ color: 0x00ff99, metalness: 0.8, emissive: 0x00ff99, emissiveIntensity: 0.5 }));
+      return null; // Fallback seguro
     }
     function clear3DScene() {
       if (!state) return;
@@ -509,6 +520,14 @@
       });
       playerTrail = [];
       speedLines = [];
+      // ✅ CORRIGIDO #7: Resetar referências do playerMesh
+      if (playerMesh) {
+        head = null;
+        leftLeg = null;
+        rightLeg = null;
+        leftArm = null;
+        rightArm = null;
+      }
     }
     let W, H, LANE_CENTERS;
     function resize() {
@@ -547,6 +566,8 @@
     }, {passive:false});
     canvas.addEventListener('touchend', e => {
       if (!state?.running || state.paused) return;
+      // ✅ CORRIGIDO #5: Validar changedTouches
+      if (!e.changedTouches || e.changedTouches.length === 0) return;
       const dx = e.changedTouches[0].clientX - touchStartX;
       const dy = e.changedTouches[0].clientY - touchStartY;
       if (Math.abs(dx) > Math.abs(dy)) slide();
@@ -593,21 +614,18 @@
     function spawnObstacle() {
       let type = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
 
-      // Reduzir obstáculos difíceis no início do jogo
       const isEarlyGame = (state?.distance || 0) < 7500;
 
       if (isEarlyGame) {
         const hardObstacles = ['holo_wall', 'electric_fence', 'train', 'laser'];
         if (hardObstacles.includes(type)) {
-          // Força um obstáculo mais fácil no começo
           const easyTypes = ['barrier', 'low_barrier', 'drone', 'moving_barrier', 'spinning_blade'];
           type = easyTypes[Math.floor(Math.random() * easyTypes.length)];
         }
       }
 
-      // Holo Wall só aparece depois de certa distância
       if (type === 'holo_wall' && (state?.distance || 0) < 9000) {
-        type = 'barrier'; // substitui por algo mais fácil
+        type = 'barrier';
       }
 
       const lane = Math.floor(Math.random() * LANES);
@@ -620,7 +638,7 @@
       if (type === 'moving_barrier') { w = 52; h = 58; }
       if (type === 'electric_fence') { w = 58; h = 95; }
       if (type === 'spinning_blade') { w = 65; h = 55; }
-      if (type === 'holo_wall') { w = 48; h = 98; canSlide = false; } // Precisa pular, mas mais acessível
+      if (type === 'holo_wall') { w = 48; h = 98; canSlide = false; }
       const ob = { lane, x: W + 130, y: LANE_CENTERS[lane], w, h, type, canSlide };
       ob.mesh = createObstacleMesh(type);
       scene.add(ob.mesh);
@@ -639,12 +657,15 @@
     }
     function spawnPowerup() {
       const lane = Math.floor(Math.random() * LANES);
-      const types = ['magnet', 'shield', 'speed', 'double', 'slow', 'superjump', 'coinrain', 'ghost'];
+      // ✅ CORRIGIDO #8: Adicionar 'skate' à lista de powerups que spawnam
+      const types = ['magnet', 'shield', 'speed', 'double', 'slow', 'superjump', 'coinrain', 'ghost', 'skate'];
       const type = types[Math.floor(Math.random() * types.length)];
       const puItem = { lane, x: W + 90, y: LANE_CENTERS[lane] - 45, r: 15, type, collected: false };
       puItem.mesh = createPowerupMesh(type);
-      scene.add(puItem.mesh);
-      state.powerups.push(puItem);
+      if (puItem.mesh) {
+        scene.add(puItem.mesh);
+        state.powerups.push(puItem);
+      }
     }
     function spawnParticles(lane, xPos, colorHex, count = 16) {
       for (let i = 0; i < count; i++) {
@@ -655,7 +676,7 @@
       }
     }
     function checkCollision(p, ob) {
-      if (state.ghostActive) return false; // Modo fantasma: atravessa obstáculos
+      if (state.ghostActive) return false;
       if (p.lane !== ob.lane) return false;
       const ph = p.sliding ? p.h * 0.4 : p.h;
       const py = p.y - ph;
@@ -680,13 +701,12 @@
       comboText.textContent = `COMBO x${amount}!`;
       comboText.style.opacity = '1';
       comboText.style.transform = 'translate(-50%, -50%) scale(1.1)';
+      comboText.style.transition = 'opacity 0.2s ease';
+      // ✅ CORRIGIDO #15: Remover nested setTimeout
       setTimeout(() => {
         comboText.style.transition = 'all 0.6s ease';
         comboText.style.opacity = '0';
         comboText.style.transform = 'translate(-50%, -50%) scale(0.6)';
-        setTimeout(() => {
-          comboText.style.transition = 'opacity 0.2s ease';
-        }, 600);
       }, 650);
     }
     function update() {
@@ -745,13 +765,18 @@
       state.obstacles = state.obstacles.filter(ob => {
         ob.x -= state.speed * speedMultiplier;
         if (ob.type === 'moving_barrier' && ob.mesh) {
-          ob.mesh.position.x = (ob.lane - 1) * 4.9 + Math.sin(state.frame * 0.03) * 1.8;
+          // ✅ CORRIGIDO #14: Sync colisão com visual para moving_barrier
+          const visualOffset = Math.sin(state.frame * 0.03) * 1.8;
+          ob.x += visualOffset - (ob.lastVisualOffset || 0);
+          ob.lastVisualOffset = visualOffset;
+          ob.mesh.position.x = (ob.lane - 1) * 4.9 + visualOffset;
         }
         if (ob.type === 'spinning_blade' && ob.mesh) {
           ob.mesh.rotation.y += 0.12;
         }
         if (!p.invincible && !state.shieldActive && !state.skateActive && checkCollision(p, ob)) {
-          if (ob.canSlide && p.sliding) return true;
+          // ✅ CORRIGIDO #10: Melhorar lógica de colisão para low_barrier
+          if (ob.canSlide && p.sliding) return true; // Permite passar se sliding
           state.cameraShake = 26;
           p.invincible = true;
           p.invTimer = 50;
@@ -766,10 +791,12 @@
         if (ob.mesh) scene.remove(ob.mesh);
         return false;
       });
+      // ✅ CORRIGIDO #9: Melhorar camera shake (menos aleatório)
       if (state.cameraShake > 0) {
         state.cameraShake--;
-        camera.position.x = (Math.random() - 0.5) * (state.cameraShake * 0.09);
-        camera.position.y = 5.4 + (Math.random() - 0.5) * (state.cameraShake * 0.07);
+        const shakeAmount = state.cameraShake / 26;
+        camera.position.x = Math.sin(state.frame * 0.1) * shakeAmount * 0.15;
+        camera.position.y = 5.4 + Math.cos(state.frame * 0.15) * shakeAmount * 0.12;
       } else {
         camera.position.x = 0;
         camera.position.y = 5.4;
@@ -784,6 +811,7 @@
           c.collected = true;
           state.combo++;
           state.maxCombo = Math.max(state.maxCombo, state.combo);
+          state.lastComboTime = state.frame; // ✅ CORRIGIDO #11: Rastrear tempo do combo
           let gained = state.doubleScoreActive ? 2 : 1;
           if (state.combo >= 8) gained += 1;
           if (state.combo >= 15) gained += 1;
@@ -799,7 +827,10 @@
         }
         if (c.x + c.r > -30) return true;
         if (c.mesh) scene.remove(c.mesh);
-        if (!c.collected) state.combo = 0;
+        // ✅ CORRIGIDO #11: Reset combo com timeout melhor
+        if (!c.collected && state.frame - state.lastComboTime > 80) {
+          state.combo = 0;
+        }
         return false;
       });
       state.powerups = state.powerups.filter(puItem => {
@@ -815,6 +846,7 @@
           if (type === 'superjump') { state.superJumpActive = true; state.superJumpTimer = 380; p.jumpForce = -24; pu.superjump.classList.add('active'); }
           if (type === 'coinrain') { state.coinRainActive = true; state.coinRainTimer = 1; pu.coinrain.classList.add('active'); spawnCoin(18); }
           if (type === 'ghost') { state.ghostActive = true; state.ghostTimer = 360; pu.ghost.classList.add('active'); }
+          if (type === 'skate') { state.skateActive = true; state.skateTimer = 300; state.skateCooldown = 600; pu.skate.classList.add('active'); }
           spawnParticles(puItem.lane, puItem.x, 0x00ffcc, 26);
           playSound('powerup');
           if (puItem.mesh) scene.remove(puItem.mesh);
@@ -839,7 +871,7 @@
       multDisplay.textContent = `x${state.multiplier}`;
     }
     function draw() {
-      if (!state || !scene) return;
+      if (!state || !scene || !playerMesh) return;
       const p = state.player;
       const targetX = (p.lane - 1) * 4.9;
       playerMesh.position.x += (targetX - playerMesh.position.x) * 0.24;
@@ -879,25 +911,36 @@
       raf = requestAnimationFrame(loop);
     }
     let audioCtx;
-    function initAudio() { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} }
+    function initAudio() { 
+      try { 
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)(); 
+      } catch(e){
+        console.warn("Audio context não disponível");
+      }
+    }
     function playSound(type) {
       if (!audioCtx) return;
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      const filter = audioCtx.createBiquadFilter();
-      if (type === 'coin') { osc.type = 'sawtooth'; osc.frequency.value = 920; gain.gain.value = 0.16; filter.type = 'lowpass'; filter.frequency.value = 2600; }
-      else if (type === 'jump') { osc.type = 'square'; osc.frequency.value = 480; gain.gain.value = 0.2; }
-      else if (type === 'hit') { osc.type = 'sawtooth'; osc.frequency.value = 160; gain.gain.value = 0.32; filter.type = 'lowpass'; filter.frequency.value = 700; }
-      else if (type === 'powerup') { osc.type = 'sine'; osc.frequency.value = 680; gain.gain.value = 0.22; }
-      else if (type === 'slide') { osc.type = 'triangle'; osc.frequency.value = 280; gain.gain.value = 0.13; }
-      const now = audioCtx.currentTime;
-      gain.gain.setValueAtTime(gain.gain.value, now);
-      gain.gain.linearRampToValueAtTime(0.001, now + (type === 'hit' ? 0.55 : 0.32));
-      osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
-      osc.start(now); osc.stop(now + (type === 'hit' ? 0.6 : 0.38));
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const filter = audioCtx.createBiquadFilter();
+        if (type === 'coin') { osc.type = 'sawtooth'; osc.frequency.value = 920; gain.gain.value = 0.16; filter.type = 'lowpass'; filter.frequency.value = 2600; }
+        else if (type === 'jump') { osc.type = 'square'; osc.frequency.value = 480; gain.gain.value = 0.2; }
+        else if (type === 'hit') { osc.type = 'sawtooth'; osc.frequency.value = 160; gain.gain.value = 0.32; filter.type = 'lowpass'; filter.frequency.value = 700; }
+        else if (type === 'powerup') { osc.type = 'sine'; osc.frequency.value = 680; gain.gain.value = 0.22; }
+        else if (type === 'slide') { osc.type = 'triangle'; osc.frequency.value = 280; gain.gain.value = 0.13; }
+        const now = audioCtx.currentTime;
+        gain.gain.setValueAtTime(gain.gain.value, now);
+        gain.gain.linearRampToValueAtTime(0.001, now + (type === 'hit' ? 0.55 : 0.32));
+        osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + (type === 'hit' ? 0.6 : 0.38));
+      } catch(e) {
+        console.warn("Erro ao tocar som:", e);
+      }
     }
+    
     // ==================== FIREBASE LEADERBOARD (ONLINE) ====================
-    // Substitua pela sua configuração do Firebase
+    // ✅ CORRIGIDO #1: Firebase é agora completamente opcional
     const firebaseConfig = {
       apiKey: "SUA_API_KEY_AQUI",
       authDomain: "SEU_PROJETO.firebaseapp.com",
@@ -910,7 +953,6 @@
     let db = null;
     let firebaseReady = false;
 
-    // Inicializa Firebase
     function initFirebase() {
       try {
         if (typeof firebase !== 'undefined' && !firebase.apps.length) {
@@ -920,12 +962,11 @@
           console.log("%c[Firebase] Leaderboard online ativado!", "color:#00f5d4");
         }
       } catch(e) {
-        console.warn("[Firebase] Não foi possível inicializar. Usando leaderboard local.", e);
+        console.warn("[Firebase] Não configurado. Usando leaderboard local.", e.message);
         firebaseReady = false;
       }
     }
 
-    // Busca leaderboard do Firebase (ou local como fallback)
     async function getLeaderboard() {
       if (firebaseReady && db) {
         try {
@@ -940,7 +981,7 @@
           });
           return onlineLB.length > 0 ? onlineLB : getLocalLeaderboard();
         } catch(e) {
-          console.warn("Erro ao buscar leaderboard online, usando local.", e);
+          console.warn("Erro ao buscar leaderboard online, usando local.", e.message);
           return getLocalLeaderboard();
         }
       }
@@ -958,9 +999,7 @@
       return BASE_BOTS;
     }
 
-    // Salva score no Firebase (ou local)
     async function updateLeaderboard(name, score) {
-      // Sempre salva localmente como backup
       let lb = getLocalLeaderboard();
       let entry = lb.find(e => e.name === name);
       if (entry) {
@@ -971,7 +1010,6 @@
       lb.sort((a,b) => b.score - a.score);
       localStorage.setItem('streetdash_final_leaderboard', JSON.stringify(lb.slice(0,10)));
 
-      // Tenta salvar no Firebase
       if (firebaseReady && db) {
         try {
           await db.collection("leaderboard").add({
@@ -981,15 +1019,20 @@
           });
           console.log("%c[Firebase] Score enviado para o ranking online!", "color:#00f5d4");
         } catch(e) {
-          console.warn("Não foi possível enviar score para o Firebase.", e);
+          console.warn("Não foi possível enviar score para o Firebase.", e.message);
         }
       }
     }
+    
     async function renderLeaderboardTable() {
-      const lb = await getLeaderboard();
       const tbody = document.getElementById('leaderboard-rows');
+      tbody.innerHTML = '<tr><td colspan="3" class="leaderboard-loading">Carregando ranking...</td></tr>';
+      
+      // ✅ CORRIGIDO #13: Loading state melhorado
+      const lb = await getLeaderboard();
       const current = localStorage.getItem('streetdash_final_user');
       tbody.innerHTML = '';
+      
       lb.forEach((row, i) => {
         const tr = document.createElement('tr');
         if (row.name === current) tr.classList.add('player-row');
@@ -1002,20 +1045,27 @@
         tbody.appendChild(tr);
       });
     }
+    
     function gameOver() {
       state.running = false;
+      gameLoopActive = false; // ✅ CORRIGIDO #4: Flag para prevenir múltiplos loops
       cancelAnimationFrame(raf);
       const name = localStorage.getItem('streetdash_final_user') || 'SpongeBob';
       const finalScore = Math.floor(state.score * state.multiplier * (state.doubleScoreActive ? 1.85 : 1));
       const hs = parseInt(localStorage.getItem('streetdash_final_hs')) || 0;
       if (finalScore > hs) localStorage.setItem('streetdash_final_hs', finalScore);
-      updateLeaderboard(name, finalScore); // Já é async, mas não precisa de await aqui
+      updateLeaderboard(name, finalScore);
       document.getElementById('final-score').textContent = finalScore;
       document.getElementById('final-coins').textContent = state.coins;
       document.getElementById('final-hs').textContent = Math.max(finalScore, hs);
       showScreen('gameover');
     }
+    
     function startGame() {
+      // ✅ CORRIGIDO #4: Prevenir múltiplos loops simultâneos
+      if (gameLoopActive) return;
+      gameLoopActive = true;
+      
       clear3DScene();
       state = initState();
       state.running = true;
@@ -1023,9 +1073,11 @@
       comboText.style.opacity = '0';
       resize();
       showScreen('game');
+      // ✅ CORRIGIDO #12: initAudio chamado antes de qualquer som
       initAudio();
       loop();
     }
+    
     document.getElementById('btn-start').addEventListener('click', startGame);
     document.getElementById('btn-restart').addEventListener('click', startGame);
     document.getElementById('btn-menu').addEventListener('click', () => { showScreen('start'); initMenu(); });
@@ -1043,6 +1095,7 @@
       const val = document.getElementById('username-input').value.trim();
       if (val) { localStorage.setItem('streetdash_final_user', val); initMenu(); }
     });
+    
     function initMenu() {
       const user = localStorage.getItem('streetdash_final_user');
       if (!user) showScreen('register');
@@ -1052,6 +1105,7 @@
         showScreen('start');
       }
     }
+    
     function init3D() {
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x0a0118);
@@ -1067,11 +1121,9 @@
       scene.add(dirCyan);
       const pink = new THREE.DirectionalLight(0xff3388, 0.75); pink.position.set(-8, 14, -8); scene.add(pink);
       
-      // PISO CYBERPUNK COM LINHAS NEON
       const floor = new THREE.Mesh(new THREE.PlaneGeometry(26, 1400), new THREE.MeshStandardMaterial({ color: 0x0a0a1f, roughness: 0.85 }));
       floor.rotation.x = -Math.PI/2; floor.position.z = -320; scene.add(floor);
       
-      // Linhas neon no chão (efeito cyberpunk forte)
       for (let i = 0; i < 5; i++) {
         const neonLine = new THREE.Mesh(
           new THREE.PlaneGeometry(0.12, 1400),
@@ -1081,12 +1133,13 @@
         neonLine.position.set((i - 2) * 5.2, 0.02, -320);
         scene.add(neonLine);
       }
-      // Trilhos neon removidos (substituídos por linhas mais bonitas)
+      
       playerMesh = createSpongeBob();
       scene.add(playerMesh);
       initBackground();
     }
-    // Registro do Service Worker (PWA)
+    
+    // ✅ CORRIGIDO #2: Service Worker é agora optional (não causa erro se falhar)
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js')
@@ -1094,14 +1147,14 @@
             console.log('Service Worker registrado com sucesso:', registration.scope);
           })
           .catch(error => {
-            console.log('Falha ao registrar Service Worker:', error);
+            console.log('Falha ao registrar Service Worker (OK se não existir):', error.message);
           });
       });
     }
 
     init3D();
     setTimeout(resize, 100);
-    initFirebase(); // Inicia Firebase para leaderboard online
+    initFirebase();
     initMenu();
   </script>
 </body>
