@@ -107,7 +107,8 @@
       <p style="margin-top:38px; font-size:1rem; color:#8a7aa8; line-height:1.7;">
         <strong>Controles:</strong><br>
         W/S ou ↑↓ → Mudar pista &nbsp;&nbsp;|&nbsp;&nbsp; Espaço → Pular<br>
-        A/D ou ←→ → Deslizar &nbsp;&nbsp;|&nbsp;&nbsp; <strong>Q</strong> → Skate (Velocidade + Visual)
+        A/D ou ←→ → Deslizar &nbsp;&nbsp;|&nbsp;&nbsp; <strong>Q</strong> → Skate (Velocidade + Visual)<br>
+        Fuja do Patrick Estrela! Se ele encostar em você, é game over.
       </p>
     </div>
     <div id="screen-leaderboard" class="screen">
@@ -143,6 +144,7 @@
         <div id="pu-skate" class="powerup-icon">🛹 SKATE</div>
       </div>
       <div id="combo-text" class="combo-text"></div>
+      <div id="patrick-warning" style="position:absolute;bottom:88px;left:50%;transform:translateX(-50%);font-size:1.15rem;font-weight:bold;color:#ff8ad4;text-shadow:0 0 12px #ff2e88;z-index:40;opacity:0;pointer-events:none;letter-spacing:1px;">PATRICK ESTÁ CHEGANDO!</div>
       <canvas id="gameCanvas"></canvas>
     </div>
     <div id="screen-gameover" class="screen">
@@ -194,6 +196,7 @@
     let state, raf;
     let scene, camera, renderer;
     let playerMesh, leftLeg, rightLeg, leftArm, rightArm, head;
+    let patrickMesh, patLeftLeg, patRightLeg, patLeftArm, patRightArm, patHead;
     let playerTrail = [];
     let backgroundBuildings = [];
     let speedLines = [];
@@ -233,6 +236,9 @@
         ghostActive: false, ghostTimer: 0,
         skateActive: false, skateTimer: 0, skateCooldown: 0,
         cameraShake: 0,
+        patrickGap: 5.2,
+        patrickLane: 1,
+        patrickX: 0,
       };
     }
 
@@ -294,6 +300,120 @@
       group.scale.set(1.15, 1.15, 1.15);
       group.position.y = 0.35;
       return group;
+    }
+
+    function createPatrick() {
+      const group = new THREE.Group();
+      patHead = new THREE.Mesh(
+        new THREE.SphereGeometry(0.95, 14, 14),
+        new THREE.MeshStandardMaterial({ color: 0xff8ab0, roughness: 0.7 })
+      );
+      patHead.position.set(0, 1.85, 0);
+      patHead.scale.set(1.05, 0.95, 0.9);
+      group.add(patHead);
+      const body = new THREE.Mesh(
+        new THREE.SphereGeometry(1.15, 14, 14),
+        new THREE.MeshStandardMaterial({ color: 0xff8ab0, roughness: 0.7 })
+      );
+      body.position.set(0, 0.85, 0);
+      body.scale.set(1.15, 0.95, 0.95);
+      group.add(body);
+      const shorts = new THREE.Mesh(
+        new THREE.BoxGeometry(2.15, 0.7, 1.35),
+        new THREE.MeshStandardMaterial({ color: 0x3db54a, roughness: 0.65 })
+      );
+      shorts.position.set(0, 0.28, 0);
+      group.add(shorts);
+      const flowerMat = new THREE.MeshBasicMaterial({ color: 0x7b3fa0 });
+      for (const fx of [-0.55, 0, 0.55]) {
+        const flower = new THREE.Mesh(new THREE.CircleGeometry(0.16, 8), flowerMat);
+        flower.position.set(fx, 0.28, 0.69);
+        group.add(flower);
+      }
+      const eyeGeo = new THREE.SphereGeometry(0.22, 10, 10);
+      const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
+      const leftEye = new THREE.Mesh(eyeGeo, eyeMat); leftEye.position.set(-0.28, 1.95, 0.78); group.add(leftEye);
+      const rightEye = new THREE.Mesh(eyeGeo, eyeMat); rightEye.position.set(0.28, 1.95, 0.78); group.add(rightEye);
+      const pupilGeo = new THREE.SphereGeometry(0.1, 8, 8);
+      const pupilMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+      const lp = new THREE.Mesh(pupilGeo, pupilMat); lp.position.set(-0.28, 1.95, 0.96); group.add(lp);
+      const rp = new THREE.Mesh(pupilGeo, pupilMat); rp.position.set(0.28, 1.95, 0.96); group.add(rp);
+      const browMat = new THREE.MeshStandardMaterial({ color: 0x5a2a18 });
+      const lb = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.06, 0.1), browMat);
+      lb.position.set(-0.28, 2.18, 0.8); group.add(lb);
+      const rb = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.06, 0.1), browMat);
+      rb.position.set(0.28, 2.18, 0.8); group.add(rb);
+      const smile = new THREE.Mesh(
+        new THREE.TorusGeometry(0.28, 0.05, 8, 12, Math.PI),
+        new THREE.MeshStandardMaterial({ color: 0x222222 })
+      );
+      smile.position.set(0, 1.62, 0.82); smile.rotation.x = -0.5; group.add(smile);
+      const armGeo = new THREE.CylinderGeometry(0.16, 0.2, 0.95, 8);
+      const armMat = new THREE.MeshStandardMaterial({ color: 0xff8ab0, roughness: 0.7 });
+      patLeftArm = new THREE.Mesh(armGeo, armMat); patLeftArm.position.set(-1.15, 1.05, 0); patLeftArm.rotation.z = 0.55; group.add(patLeftArm);
+      patRightArm = new THREE.Mesh(armGeo, armMat); patRightArm.position.set(1.15, 1.05, 0); patRightArm.rotation.z = -0.55; group.add(patRightArm);
+      const handGeo = new THREE.SphereGeometry(0.22, 8, 8);
+      const leftHand = new THREE.Mesh(handGeo, armMat); leftHand.position.set(-1.45, 0.7, 0); group.add(leftHand);
+      const rightHand = new THREE.Mesh(handGeo, armMat); rightHand.position.set(1.45, 0.7, 0); group.add(rightHand);
+      const legGeo = new THREE.CylinderGeometry(0.22, 0.2, 0.7, 8);
+      patLeftLeg = new THREE.Mesh(legGeo, armMat); patLeftLeg.position.set(-0.4, -0.22, 0); group.add(patLeftLeg);
+      patRightLeg = new THREE.Mesh(legGeo, armMat); patRightLeg.position.set(0.4, -0.22, 0); group.add(patRightLeg);
+      const shoeMat = new THREE.MeshStandardMaterial({ color: 0x5c3317, roughness: 0.85 });
+      const ls = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.22, 0.58), shoeMat); ls.position.set(-0.4, -0.58, 0.08); group.add(ls);
+      const rs = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.22, 0.58), shoeMat); rs.position.set(0.4, -0.58, 0.08); group.add(rs);
+      group.scale.set(0.95, 0.95, 0.95);
+      group.position.set(0, 0.25, 5.2);
+      return group;
+    }
+
+    function animatePatrick() {
+      if (!patrickMesh || !state || !patLeftLeg || !patRightLeg) return;
+      const t = state.frame * 0.22;
+      const swing = Math.sin(t) * 1.05;
+      patLeftLeg.rotation.x = swing * 0.9;
+      patRightLeg.rotation.x = -swing * 0.9;
+      if (patLeftArm && patRightArm) {
+        patLeftArm.rotation.x = -swing * 0.7;
+        patRightArm.rotation.x = swing * 0.7;
+      }
+      if (patHead) {
+        patHead.rotation.z = Math.sin(t * 1.4) * 0.08;
+        patHead.position.y = 1.85 + Math.sin(t * 2.2) * 0.04;
+      }
+      patrickMesh.position.y = 0.25 + Math.sin(t * 2.2) * 0.07;
+    }
+
+    function updatePatrick() {
+      if (!patrickMesh || !state || !state.running || state.paused) return;
+      const p = state.player;
+      const speedMul = state.slowMoActive ? 0.42 : 1;
+      let close = 0.011 * speedMul;
+      if (state.speedBoostActive) close *= 0.35;
+      if (state.skateActive) close *= 0.22;
+      if (state.ghostActive) close *= 0.15;
+      if (state.speed < 6) close *= 1.45;
+      if (state.speed > 9) close *= 0.7;
+      state.patrickGap -= close;
+      if (state.patrickGap > 6.4) state.patrickGap = 6.4;
+      const warn = document.getElementById('patrick-warning');
+      if (warn) warn.style.opacity = state.patrickGap < 2.6 ? '1' : '0';
+      if (state.patrickGap <= 1.15) {
+        spawnParticles(p.lane, p.x, 0xff8ab0, 28);
+        playSound('hit');
+        if (warn) warn.style.opacity = '0';
+        gameOver();
+        return;
+      }
+      const targetLaneX = (p.lane - 1) * 4.9;
+      state.patrickX += (targetLaneX - state.patrickX) * 0.08;
+      patrickMesh.position.x = state.patrickX;
+      patrickMesh.position.z = Math.max(1.15, state.patrickGap);
+      animatePatrick();
+    }
+
+    function pushPatrickBack(amount) {
+      if (!state) return;
+      state.patrickGap = Math.min(6.4, state.patrickGap + amount);
     }
 
     function animateSpongeBob() {
@@ -529,6 +649,12 @@
           }
         });
       }
+      if (patrickMesh) {
+        patrickMesh.position.set(0, 0.25, 5.2);
+        patrickMesh.visible = true;
+      }
+      const warn = document.getElementById('patrick-warning');
+      if (warn) warn.style.opacity = '0';
     }
 
     let W, H, LANE_CENTERS;
@@ -612,6 +738,7 @@
       pu.skate.classList.add('active');
       playSound('powerup');
       spawnParticles(state.player.lane, state.player.x, 0x00ff99, 30);
+      pushPatrickBack(1.1);
     }
 
     const OBSTACLE_TYPES = ['train', 'barrier', 'low_barrier', 'drone', 'laser', 'moving_barrier', 'electric_fence', 'spinning_blade', 'holo_wall'];
@@ -817,6 +944,7 @@
           }
           spawnParticles(c.lane, c.x, 0xffd700, 18);
           playSound('coin');
+          pushPatrickBack(0.12);
           if (c.mesh) scene.remove(c.mesh);
           return false;
         }
@@ -841,6 +969,7 @@
           if (type === 'skate') { state.skateActive = true; state.skateTimer = 300; state.skateCooldown = 600; pu.skate.classList.add('active'); }
           spawnParticles(puItem.lane, puItem.x, 0x00ffcc, 26);
           playSound('powerup');
+          pushPatrickBack(0.85);
           if (puItem.mesh) scene.remove(puItem.mesh);
           return false;
         }
@@ -871,6 +1000,7 @@
       const jumpOffset = (p.baseY - p.y) * 0.078;
       playerMesh.position.y = 0.35 + jumpOffset;
       animateSpongeBob();
+      updatePatrick();
       updatePlayerTrail();
       updateBackground();
       updateSpeedLines();
@@ -1101,6 +1231,8 @@
       }
       playerMesh = createSpongeBob();
       scene.add(playerMesh);
+      patrickMesh = createPatrick();
+      scene.add(patrickMesh);
       initBackground();
     }
 
