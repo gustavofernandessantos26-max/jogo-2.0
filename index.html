@@ -198,6 +198,22 @@
     let backgroundBuildings = [];
     let speedLines = [];
     let gameLoopActive = false;
+    const IS_MOBILE = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || window.innerWidth < 820;
+    const MAX_PARTICLES = IS_MOBILE ? 40 : 80;
+    const MAX_SPEED_LINES = IS_MOBILE ? 6 : 12;
+    const MAX_TRAIL = IS_MOBILE ? 4 : 8;
+    const SHARED = {
+      coinGeo: new THREE.CylinderGeometry(0.48, 0.48, 0.13, 12),
+      particleGeo: new THREE.BoxGeometry(0.22, 0.22, 0.22),
+      speedLineGeo: new THREE.PlaneGeometry(18, 0.12),
+      trailGeo: new THREE.BoxGeometry(1.1, 2.2, 1.1),
+      winFrontGeo: new THREE.BoxGeometry(1, 0.55, 0.28),
+      winSideGeo: new THREE.BoxGeometry(0.28, 0.55, 5.2),
+      coinMat: new THREE.MeshBasicMaterial({ color: 0xffd700 }),
+      trailMat: new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.22, depthWrite: false }),
+      speedLineMat: new THREE.MeshBasicMaterial({ color: 0x00f5d4, transparent: true, opacity: 0.35, depthWrite: false }),
+    };
+    function disposeObject(obj) { if (obj) scene.remove(obj); }
 
     function initState() {
       return {
@@ -222,7 +238,7 @@
 
     function createSpongeBob() {
       const group = new THREE.Group();
-      const headGeo = new THREE.SphereGeometry(0.9, 40, 40);
+      const headGeo = new THREE.SphereGeometry(0.9, 16, 16);
       const headMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.6, metalness: 0.05 });
       head = new THREE.Mesh(headGeo, headMat);
       head.position.set(0, 2.2, 0);
@@ -237,15 +253,15 @@
       rightBrow.position.set(0.38, 2.55, 0.85);
       rightBrow.rotation.z = 0.15;
       group.add(rightBrow);
-      const eyeGeo = new THREE.SphereGeometry(0.32, 28, 28);
+      const eyeGeo = new THREE.SphereGeometry(0.32, 12, 12);
       const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
       const leftEye = new THREE.Mesh(eyeGeo, eyeMat); leftEye.position.set(-0.38, 2.32, 0.82); group.add(leftEye);
       const rightEye = new THREE.Mesh(eyeGeo, eyeMat); rightEye.position.set(0.38, 2.32, 0.82); group.add(rightEye);
-      const pupilGeo = new THREE.SphereGeometry(0.14, 20, 20);
+      const pupilGeo = new THREE.SphereGeometry(0.14, 8, 8);
       const pupilMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
       const leftPupil = new THREE.Mesh(pupilGeo, pupilMat); leftPupil.position.set(-0.38, 2.32, 1.08); group.add(leftPupil);
       const rightPupil = new THREE.Mesh(pupilGeo, pupilMat); rightPupil.position.set(0.38, 2.32, 1.08); group.add(rightPupil);
-      const smileGeo = new THREE.TorusGeometry(0.42, 0.07, 14, 28, Math.PI);
+      const smileGeo = new THREE.TorusGeometry(0.42, 0.07, 8, 12, Math.PI);
       const smileMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
       const smile = new THREE.Mesh(smileGeo, smileMat); smile.position.set(0, 1.9, 0.95); smile.rotation.x = -0.4; group.add(smile);
       const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.26, 0.14), new THREE.MeshStandardMaterial({ color: 0xeeeeee }));
@@ -260,15 +276,15 @@
       pants.position.set(0, 0.28, 0); group.add(pants);
       const belt = new THREE.Mesh(new THREE.BoxGeometry(1.58, 0.18, 1.18), new THREE.MeshStandardMaterial({ color: 0xcc0000 }));
       belt.position.set(0, 0.72, 0); group.add(belt);
-      const armGeo = new THREE.CylinderGeometry(0.18, 0.17, 0.95, 18);
+      const armGeo = new THREE.CylinderGeometry(0.18, 0.17, 0.95, 8);
       const armMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.55 });
       leftArm = new THREE.Mesh(armGeo, armMat); leftArm.position.set(-0.9, 1.15, 0); leftArm.rotation.z = 0.5; group.add(leftArm);
       rightArm = new THREE.Mesh(armGeo, armMat); rightArm.position.set(0.9, 1.15, 0); rightArm.rotation.z = -0.5; group.add(rightArm);
-      const handGeo = new THREE.SphereGeometry(0.22, 16, 16);
+      const handGeo = new THREE.SphereGeometry(0.22, 8, 8);
       const handMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.6 });
       const leftHand = new THREE.Mesh(handGeo, handMat); leftHand.position.set(-1.25, 0.85, 0); group.add(leftHand);
       const rightHand = new THREE.Mesh(handGeo, handMat); rightHand.position.set(1.25, 0.85, 0); group.add(rightHand);
-      const legGeo = new THREE.CylinderGeometry(0.22, 0.19, 1.05, 18);
+      const legGeo = new THREE.CylinderGeometry(0.22, 0.19, 1.05, 8);
       const legMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.55 });
       leftLeg = new THREE.Mesh(legGeo, legMat); leftLeg.position.set(-0.42, -0.2, 0); group.add(leftLeg);
       rightLeg = new THREE.Mesh(legGeo, legMat); rightLeg.position.set(0.42, -0.2, 0); group.add(rightLeg);
@@ -319,17 +335,12 @@
         playerMesh.scale.y = 1.18;
         playerMesh.position.y = 0.35;
       }
-      if (state.skateActive) {
+      if (state.skateActive !== playerMesh.userData.skateTinted) {
+        playerMesh.userData.skateTinted = state.skateActive;
         playerMesh.traverse(child => {
           if (child.material && child.material.color) {
-            if (!child.userData.originalColor) child.userData.originalColor = child.material.color.getHex();
-            child.material.color.setHex(0x00ff99);
-          }
-        });
-      } else {
-        playerMesh.traverse(child => {
-          if (child.material && child.userData.originalColor) {
-            child.material.color.setHex(child.userData.originalColor);
+            if (child.userData.originalColor == null) child.userData.originalColor = child.material.color.getHex();
+            child.material.color.setHex(state.skateActive ? 0x00ff99 : child.userData.originalColor);
           }
         });
       }
@@ -342,14 +353,25 @@
 
     function createBackgroundBuilding(x, z, width, height, color) {
       const group = new THREE.Group();
-      const building = new THREE.Mesh(new THREE.BoxGeometry(width, height, 8), new THREE.MeshStandardMaterial({ color: color, roughness: 0.9 }));
+      const building = new THREE.Mesh(
+        new THREE.BoxGeometry(width, height, 8),
+        new THREE.MeshLambertMaterial({ color: color, emissive: 0x112233, emissiveIntensity: 0.25 })
+      );
       building.position.y = height / 2;
       group.add(building);
-      for (let i = 0; i < 6; i++) {
-        const windowColor = Math.random() > 0.5 ? 0x008877 : 0xaa2266;
-        const win = new THREE.Mesh(new THREE.BoxGeometry(width * 0.7, 0.6, 0.3), new THREE.MeshBasicMaterial({ color: windowColor }));
-        win.position.set(0, 1.5 + i * 2.2, 4.1);
-        group.add(win);
+      const innerSign = x >= 0 ? -1 : 1;
+      const winCount = IS_MOBILE ? 3 : 5;
+      const winMatA = new THREE.MeshBasicMaterial({ color: 0x00f5d4 });
+      const winMatB = new THREE.MeshBasicMaterial({ color: 0xff2e88 });
+      for (let i = 0; i < winCount; i++) {
+        const winMat = Math.random() > 0.5 ? winMatA : winMatB;
+        const winFront = new THREE.Mesh(SHARED.winFrontGeo, winMat);
+        winFront.scale.x = width * 0.62;
+        winFront.position.set(0, 2.2 + i * 3.1, 4.15);
+        group.add(winFront);
+        const winSide = new THREE.Mesh(SHARED.winSideGeo, winMat);
+        winSide.position.set(innerSign * (width / 2 + 0.05), 2.2 + i * 3.1, 0);
+        group.add(winSide);
       }
       group.position.set(x, 0, z);
       return group;
@@ -357,11 +379,13 @@
 
     function initBackground() {
       backgroundBuildings = [];
-      for (let i = 0; i < 14; i++) {
-        const x = (Math.random() - 0.5) * 38;
-        const z = -80 - i * 45;
-        const w = 6 + Math.random() * 7;
-        const h = 18 + Math.random() * 22;
+      const count = IS_MOBILE ? 14 : 20;
+      for (let i = 0; i < count; i++) {
+        const side = i % 2 === 0 ? -1 : 1;
+        const x = side * (20 + Math.random() * 18);
+        const z = -40 - i * 34;
+        const w = 6 + Math.random() * 8;
+        const h = 16 + Math.random() * 28;
         const color = Math.random() > 0.5 ? 0x1a1a3a : 0x222244;
         const building = createBackgroundBuilding(x, z, w, h, color);
         scene.add(building);
@@ -374,22 +398,22 @@
       const speed = state.speed * (state.slowMoActive ? 0.45 : 1);
       backgroundBuildings.forEach(b => {
         b.position.z += speed * 0.32;
-        if (b.position.z > 30) {
+        if (b.position.z > 40) {
           b.position.z = -520 - Math.random() * 80;
-          b.position.x = (Math.random() - 0.5) * 38;
+          const side = b.position.x >= 0 ? 1 : -1;
+          b.position.x = side * (20 + Math.random() * 18);
         }
       });
     }
 
     function spawnSpeedLines() {
       if (!state || state.speed < 8) return;
-      for (let i = 0; i < 3; i++) {
-        const line = new THREE.Mesh(new THREE.PlaneGeometry(18, 0.12), new THREE.MeshBasicMaterial({ color: 0x00f5d4, transparent: true, opacity: 0.35 }));
-        line.position.set((Math.random() - 0.5) * 14, 1.5 + Math.random() * 4, -18);
-        line.rotation.z = (Math.random() - 0.5) * 0.3;
-        scene.add(line);
-        speedLines.push({ mesh: line, life: 6 + Math.random() * 4 });
-      }
+      if (speedLines.length >= MAX_SPEED_LINES) return;
+      const line = new THREE.Mesh(SHARED.speedLineGeo, SHARED.speedLineMat.clone());
+      line.position.set((Math.random() - 0.5) * 14, 1.5 + Math.random() * 4, -18);
+      line.rotation.z = (Math.random() - 0.5) * 0.3;
+      scene.add(line);
+      speedLines.push({ mesh: line, life: 6 + Math.random() * 4 });
     }
 
     function updateSpeedLines() {
@@ -398,7 +422,7 @@
         line.life--;
         line.mesh.material.opacity *= 0.82;
         if (line.life <= 0) {
-          scene.remove(line.mesh);
+          disposeObject(line.mesh);
           return false;
         }
         return true;
@@ -409,25 +433,19 @@
       if (!playerMesh || !state) return;
       const speedFactor = Math.min((state.speed - 5.4) / 5, 1.1);
       if (speedFactor < 0.25) return;
-      if (state.frame % 2 === 0) {
-        const trailMesh = playerMesh.clone();
-        trailMesh.traverse(child => {
-          if (child.material) {
-            child.material = child.material.clone();
-            child.material.transparent = true;
-            child.material.opacity = 0.18 + speedFactor * 0.12;
-          }
-        });
+      if (state.frame % 3 === 0 && playerTrail.length < MAX_TRAIL) {
+        const trailMesh = new THREE.Mesh(SHARED.trailGeo, SHARED.trailMat.clone());
+        trailMesh.position.copy(playerMesh.position);
+        trailMesh.scale.set(1.2, playerMesh.scale.y || 1.15, 1.2);
         scene.add(trailMesh);
-        playerTrail.push({ mesh: trailMesh, life: 5 + Math.floor(speedFactor * 5) });
+        playerTrail.push({ mesh: trailMesh, life: 6 + Math.floor(speedFactor * 4) });
       }
       playerTrail = playerTrail.filter(trail => {
         trail.life--;
-        trail.mesh.traverse(child => {
-          if (child.material && child.material.opacity) child.material.opacity *= 0.78;
-        });
+        trail.mesh.material.opacity *= 0.78;
+        trail.mesh.position.z += 0.15;
         if (trail.life <= 0) {
-          scene.remove(trail.mesh);
+          disposeObject(trail.mesh);
           return false;
         }
         return true;
@@ -477,7 +495,7 @@
     }
 
     function createCoinMesh() {
-      return new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 0.13, 22), new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9, roughness: 0.15, emissive: 0xffaa00, emissiveIntensity: 0.3 }));
+      return new THREE.Mesh(SHARED.coinGeo, SHARED.coinMat);
     }
 
     function createPowerupMesh(type) {
@@ -650,11 +668,15 @@
     }
 
     function spawnParticles(lane, xPos, colorHex, count = 16) {
-      for (let i = 0; i < count; i++) {
-        const pMesh = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.22), new THREE.MeshBasicMaterial({ color: colorHex }));
+      const room = MAX_PARTICLES - state.particles.length;
+      if (room <= 0) return;
+      const n = Math.min(count, room, IS_MOBILE ? 8 : 16);
+      const mat = new THREE.MeshBasicMaterial({ color: colorHex });
+      for (let i = 0; i < n; i++) {
+        const pMesh = new THREE.Mesh(SHARED.particleGeo, mat);
         pMesh.position.set((lane - 1) * 4.9 + (Math.random() - 0.5) * 0.8, 1.3 + (Math.random() - 0.5) * 1.5, -(xPos - state.player.x) * 0.33);
         scene.add(pMesh);
-        state.particles.push({ mesh: pMesh, vx: (Math.random() - 0.5) * 0.2, vy: Math.random() * 0.28, vz: (Math.random() - 0.5) * 0.2, life: 20 + Math.floor(Math.random() * 18) });
+        state.particles.push({ mesh: pMesh, vx: (Math.random() - 0.5) * 0.2, vy: Math.random() * 0.28, vz: (Math.random() - 0.5) * 0.2, life: 16 + Math.floor(Math.random() * 10) });
       }
     }
 
@@ -704,7 +726,7 @@
       if (state.speedBoostActive) currentSpeed *= 1.6;
       if (state.skateActive) currentSpeed *= 1.35;
       state.speed = currentSpeed;
-      if (state.frame % 5 === 0) spawnSpeedLines();
+      if (state.frame % (IS_MOBILE ? 8 : 6) === 0) spawnSpeedLines();
       state.multTimer++;
       if (state.multTimer > 240) {
         state.multTimer = 0;
@@ -1053,12 +1075,20 @@
       camera = new THREE.PerspectiveCamera(61, 1, 0.1, 1400);
       camera.position.set(0, 5.4, 9.2);
       camera.lookAt(0, 1.5, -24);
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-      scene.add(new THREE.DirectionalLight(0x00f5d4, 1.1));
-      const pink = new THREE.DirectionalLight(0xff3388, 0.75); pink.position.set(-8, 14, -8); scene.add(pink);
-      const floor = new THREE.Mesh(new THREE.PlaneGeometry(26, 1400), new THREE.MeshStandardMaterial({ color: 0x0a0a1f, roughness: 0.85 }));
+      renderer = new THREE.WebGLRenderer({
+        canvas,
+        antialias: !IS_MOBILE,
+        alpha: false,
+        powerPreference: 'high-performance',
+        stencil: false,
+        depth: true
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, IS_MOBILE ? 1.25 : 1.5));
+      renderer.setClearColor(0x0a0118, 1);
+      scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+      scene.add(new THREE.DirectionalLight(0x00f5d4, 0.85));
+      const pink = new THREE.DirectionalLight(0xff3388, 0.45); pink.position.set(-8, 14, -8); scene.add(pink);
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(26, 1400), new THREE.MeshLambertMaterial({ color: 0x0a0a1f }));
       floor.rotation.x = -Math.PI/2; floor.position.z = -320; scene.add(floor);
       for (let i = 0; i < 5; i++) {
         const neonLine = new THREE.Mesh(
