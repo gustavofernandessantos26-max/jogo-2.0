@@ -24,6 +24,12 @@
       border:3px solid var(--neon-cyan); box-shadow:0 0 40px rgba(0,245,212,0.5);
       background:#0f0224; border-radius:12px; overflow:hidden;
     }
+    #game-container::after {
+      content:""; position:absolute; inset:0; pointer-events:none; z-index:8;
+      background:
+        radial-gradient(ellipse at 50% 42%, transparent 42%, rgba(8,0,20,0.62) 100%),
+        linear-gradient(180deg, rgba(0,245,212,0.05), transparent 18%, transparent 78%, rgba(255,46,136,0.08));
+    }
     .screen { position:absolute; top:0; left:0; width:100%; height:100%; display:none; flex-direction:column; justify-content:center; align-items:center; z-index:10; color:#eef1ff; text-align:center; padding:20px; }
     .screen.active { display:flex; }
     #screen-game { background:transparent; padding:0; }
@@ -52,9 +58,7 @@
     #multiplier-display { color:#ff2e88; border-left-color:#ff2e88; }
     #coins-display-wrapper { color:#ffd60a; border-left-color:#ffd60a; }
     #pause-btn { pointer-events:auto; padding:10px; font-size:1.25rem; border-radius:50%; width:54px; height:54px; }
-    .powerup-hud {
-      position:absolute; bottom:22px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:30; pointer-events:none;
-    }
+    .powerup-hud { position:absolute; bottom:22px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:30; pointer-events:none; }
     .powerup-icon {
       background:rgba(10,1,24,0.92); border:2px solid var(--neon-cyan); padding:9px 18px; border-radius:10px;
       font-size:1.2rem; color:#00f5d4; display:none; box-shadow:0 0 15px rgba(0,245,212,0.5);
@@ -65,24 +69,25 @@
       position:absolute; top:45%; left:50%; transform:translate(-50%, -50%);
       font-size:2.8rem; font-weight:bold; color:#ffd60a;
       text-shadow:0 0 20px #ffd60a, 0 0 40px #ffaa00;
-      pointer-events:none; z-index:40; opacity:0;
-      transition:opacity 0.2s ease;
+      pointer-events:none; z-index:40; opacity:0; transition:opacity 0.2s ease;
     }
-    .stats-box {
-      background:rgba(20,5,45,0.8); border:2px solid rgba(255,255,255,0.2); padding:28px 42px; border-radius:14px; margin-bottom:28px; min-width:320px;
-    }
+    .stats-box { background:rgba(20,5,45,0.8); border:2px solid rgba(255,255,255,0.2); padding:28px 42px; border-radius:14px; margin-bottom:28px; min-width:320px; }
     .stat-line { display:flex; justify-content:space-between; margin:14px 0; font-size:1.4rem; }
     .stat-line span:last-child { font-weight:bold; color:#00f5d4; }
-    .leaderboard-box {
-      width:100%; max-width:560px; background:rgba(20,5,45,0.8); border:2px solid var(--neon-cyan);
-      border-radius:14px; padding:22px; margin-bottom:28px;
-    }
+    .leaderboard-box { width:100%; max-width:560px; background:rgba(20,5,45,0.8); border:2px solid var(--neon-cyan); border-radius:14px; padding:22px; margin-bottom:28px; }
     .leaderboard-table { width:100%; border-collapse:collapse; font-size:1.3rem; }
     .leaderboard-table th { color:#ff2e88; border-bottom:3px solid #ff2e88; padding:14px 12px; text-transform:uppercase; font-size:1.1rem; letter-spacing:1.5px; }
     .leaderboard-table td { padding:16px 12px; border-bottom:1px solid rgba(255,255,255,0.08); }
     .leaderboard-table tr.player-row { background:rgba(0,245,212,0.22); color:#00f5d4; font-weight:bold; }
     .pos-1 { color:#ffd700; font-weight:bold; } .pos-2 { color:#ddd; } .pos-3 { color:#cd7f32; }
     .leaderboard-loading { color:#00f5d4; font-style:italic; padding:20px; }
+    .mobile-controls { position:absolute; bottom:18px; left:18px; right:18px; display:none; justify-content:space-between; align-items:flex-end; z-index:35; pointer-events:none; gap:12px; }
+    .mobile-controls.show { display:flex; }
+    .ctrl-cluster { display:flex; gap:10px; pointer-events:auto; }
+    .ctrl-btn { width:62px; height:62px; border-radius:16px; border:2px solid var(--neon-cyan); background:rgba(10,1,24,0.82); color:#eef1ff; font-size:1.35rem; font-weight:bold; display:flex; align-items:center; justify-content:center; box-shadow:0 0 14px rgba(0,245,212,0.35); }
+    .ctrl-btn:active { background:var(--neon-cyan); color:#0a0118; }
+    .ctrl-btn.pink { border-color:var(--neon-pink); }
+    #pu-skate.cooling { opacity:0.45; }
   </style>
 </head>
 <body>
@@ -106,8 +111,9 @@
       </div>
       <p style="margin-top:38px; font-size:1rem; color:#8a7aa8; line-height:1.7;">
         <strong>Controles:</strong><br>
-        W/S ou ↑↓ → Mudar pista &nbsp;&nbsp;|&nbsp;&nbsp; Espaço → Pular<br>
-        A/D ou ←→ → Deslizar &nbsp;&nbsp;|&nbsp;&nbsp; <strong>Q</strong> → Skate (Velocidade + Visual)<br>
+        A/D ou ←→ → Mudar pista | Espaço / W / ↑ → Pular<br>
+        S ou ↓ → Agachar / deslizar | <strong>Q</strong> → Skate<br>
+        No toque: esquerda/direita mudam a pista, cima pula, baixo agacha.<br>
         Fuja do Patrick Estrela! Se ele encostar em você, é game over.
       </p>
     </div>
@@ -116,9 +122,7 @@
       <div class="leaderboard-box">
         <table class="leaderboard-table">
           <thead><tr><th>Pos</th><th>Runner</th><th>Score</th></tr></thead>
-          <tbody id="leaderboard-rows">
-            <tr><td colspan="3" class="leaderboard-loading">Carregando ranking...</td></tr>
-          </tbody>
+          <tbody id="leaderboard-rows"><tr><td colspan="3" class="leaderboard-loading">Carregando ranking...</td></tr></tbody>
         </table>
       </div>
       <button id="btn-back-menu" class="secondary">Voltar ao Menu</button>
@@ -144,7 +148,18 @@
         <div id="pu-skate" class="powerup-icon">🛹 SKATE</div>
       </div>
       <div id="combo-text" class="combo-text"></div>
-      <div id="patrick-warning" style="position:absolute;bottom:88px;left:50%;transform:translateX(-50%);font-size:1.15rem;font-weight:bold;color:#ff8ad4;text-shadow:0 0 12px #ff2e88;z-index:40;opacity:0;pointer-events:none;letter-spacing:1px;">PATRICK ESTÁ CHEGANDO!</div>
+      <div id="patrick-warning" style="position:absolute;bottom:88px;left:50%;transform:translateX(-50%);font-size:1.15rem;font-weight:bold;color:#ff8ad4;text-shadow:0 0 12px #ff2e88;z-index:40;opacity:0;pointer-events:none;">PATRICK ESTÁ CHEGANDO!</div>
+      <div id="mobile-controls" class="mobile-controls">
+        <div class="ctrl-cluster">
+          <button type="button" class="ctrl-btn" id="btn-lane-left">◀</button>
+          <button type="button" class="ctrl-btn" id="btn-lane-right">▶</button>
+        </div>
+        <div class="ctrl-cluster">
+          <button type="button" class="ctrl-btn pink" id="btn-slide">↓</button>
+          <button type="button" class="ctrl-btn" id="btn-jump">↑</button>
+          <button type="button" class="ctrl-btn pink" id="btn-skate">🛹</button>
+        </div>
+      </div>
       <canvas id="gameCanvas"></canvas>
     </div>
     <div id="screen-gameover" class="screen">
@@ -188,1064 +203,620 @@
       ghost: document.getElementById('pu-ghost'),
       skate: document.getElementById('pu-skate'),
     };
-    const LANES = 3;
-    const BASE_SPEED = 4.8;
-    const GRAVITY = 1.05;
-    const JUMP_FORCE = -19.2;
-    const SLIDE_FRAMES = 36;
-    let state, raf;
-    let scene, camera, renderer;
+    const LANES = 3, BASE_SPEED = 4.8, JUMP_FORCE = -18.6, SUPER_JUMP_FORCE = -25.2;
+    const GRAVITY_UP = 0.72, GRAVITY_RELEASE = 1.28, GRAVITY_FALL = 1.48, GRAVITY_FAST_FALL = 2.55, MAX_FALL_SPEED = 24;
+    const COYOTE_FRAMES = 8, JUMP_BUFFER_FRAMES = 9, SLIDE_MIN_FRAMES = 18, SLIDE_MAX_FRAMES = 50, SLIDE_BOOST = 1.22, START_IFRAMES = 90;
+    let state, raf, scene, camera, renderer;
     let playerMesh, leftLeg, rightLeg, leftArm, rightArm, head;
-    let patrickMesh, patLeftLeg, patRightLeg, patLeftArm, patRightArm, patHead;
-    let playerTrail = [];
-    let backgroundBuildings = [];
-    let speedLines = [];
-    let gameLoopActive = false;
+    let leftShoe, rightShoe, leftPupil, rightPupil, leftEyelid, rightEyelid, skateBoard;
+    let patrickMesh, patLeftLeg, patRightLeg, patLeftArm, patRightArm, patHead, patBody, patLeftBrow, patRightBrow;
+    let playerTrail = [], backgroundBuildings = [], speedLines = [], gameLoopActive = false;
     const IS_MOBILE = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || window.innerWidth < 820;
-    const MAX_PARTICLES = IS_MOBILE ? 40 : 80;
-    const MAX_SPEED_LINES = IS_MOBILE ? 6 : 12;
-    const MAX_TRAIL = IS_MOBILE ? 4 : 8;
+    const MAX_PARTICLES = IS_MOBILE ? 18 : 28, MAX_SPEED_LINES = IS_MOBILE ? 4 : 7, MAX_TRAIL = IS_MOBILE ? 3 : 5;
     const SHARED = {
-      coinGeo: new THREE.CylinderGeometry(0.48, 0.48, 0.13, 12),
-      particleGeo: new THREE.BoxGeometry(0.22, 0.22, 0.22),
-      speedLineGeo: new THREE.PlaneGeometry(18, 0.12),
-      trailGeo: new THREE.BoxGeometry(1.1, 2.2, 1.1),
-      winFrontGeo: new THREE.BoxGeometry(1, 0.55, 0.28),
-      winSideGeo: new THREE.BoxGeometry(0.28, 0.55, 5.2),
-      coinMat: new THREE.MeshBasicMaterial({ color: 0xffd700 }),
-      trailMat: new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.22, depthWrite: false }),
-      speedLineMat: new THREE.MeshBasicMaterial({ color: 0x00f5d4, transparent: true, opacity: 0.35, depthWrite: false }),
+      boxGeo: new THREE.BoxGeometry(1,1,1),
+      coinGeo: new THREE.CylinderGeometry(0.48,0.48,0.13,8),
+      particleGeo: new THREE.BoxGeometry(0.2,0.2,0.2),
+      speedLineGeo: new THREE.PlaneGeometry(16,0.1),
+      trailGeo: new THREE.BoxGeometry(1,2,1),
+      winFrontGeo: new THREE.BoxGeometry(1,0.5,0.22),
+      winSideGeo: new THREE.BoxGeometry(0.22,0.5,4.6),
+      rotorGeo: new THREE.CylinderGeometry(0.9,0.9,0.1,10),
+      torusGeo: new THREE.TorusGeometry(0.55,0.16,8,14),
+      octaGeo: new THREE.OctahedronGeometry(0.65,0),
+      coneGeo: new THREE.ConeGeometry(0.55,1.2,4),
+      tetraGeo: new THREE.TetrahedronGeometry(0.7),
+      icoGeo: new THREE.IcosahedronGeometry(0.65,0),
+      sphereGeo: new THREE.SphereGeometry(0.55,10,10),
+      coinMat: new THREE.MeshBasicMaterial({color:0xffd700}),
+      trailMat: new THREE.MeshBasicMaterial({color:0xffcc00,transparent:true,opacity:0.2,depthWrite:false}),
+      speedLineMat: new THREE.MeshBasicMaterial({color:0x00f5d4,transparent:true,opacity:0.32,depthWrite:false}),
+      particleGold: new THREE.MeshBasicMaterial({color:0xffd700}),
+      particlePink: new THREE.MeshBasicMaterial({color:0xff8ab0}),
+      particleCyan: new THREE.MeshBasicMaterial({color:0x00f5d4}),
+      particleRed: new THREE.MeshBasicMaterial({color:0xff3366}),
+      bldMatA: new THREE.MeshLambertMaterial({color:0x151532,emissive:0x0b1028,emissiveIntensity:0.4}),
+      bldMatB: new THREE.MeshLambertMaterial({color:0x1c1638,emissive:0x140820,emissiveIntensity:0.35}),
+      winMatA: new THREE.MeshBasicMaterial({color:0x00f5d4}),
+      winMatB: new THREE.MeshBasicMaterial({color:0xff2e88}),
+      obTrain: new THREE.MeshLambertMaterial({color:0x2a2a4a,emissive:0x220033,emissiveIntensity:0.25}),
+      obTrainLight: new THREE.MeshBasicMaterial({color:0xff00aa}),
+      obBarrier: new THREE.MeshLambertMaterial({color:0xff5500,emissive:0x441100,emissiveIntensity:0.2}),
+      obLow: new THREE.MeshBasicMaterial({color:0x00cc99}),
+      obDrone: new THREE.MeshLambertMaterial({color:0x444466}),
+      obRotor: new THREE.MeshBasicMaterial({color:0x222233}),
+      obLaser: new THREE.MeshBasicMaterial({color:0xff00ff}),
+      obMove: new THREE.MeshLambertMaterial({color:0xff8800}),
+      obFence: new THREE.MeshBasicMaterial({color:0x00ffff}),
+      obBlade: new THREE.MeshBasicMaterial({color:0xff00aa}),
+      obHolo: new THREE.MeshBasicMaterial({color:0x00ffff,transparent:true,opacity:0.62}),
+      puMagnet: new THREE.MeshBasicMaterial({color:0x00aaff}),
+      puShield: new THREE.MeshBasicMaterial({color:0x00ffff}),
+      puSpeed: new THREE.MeshBasicMaterial({color:0xff00ff}),
+      puDouble: new THREE.MeshBasicMaterial({color:0xffdd00}),
+      puSlow: new THREE.MeshBasicMaterial({color:0x00ff88}),
+      puJump: new THREE.MeshBasicMaterial({color:0x00ffcc}),
+      puRain: new THREE.MeshBasicMaterial({color:0xffd700}),
+      puGhost: new THREE.MeshBasicMaterial({color:0x88ffcc,transparent:true,opacity:0.75}),
+      puSkate: new THREE.MeshBasicMaterial({color:0x00ff99}),
     };
-    function disposeObject(obj) { if (obj) scene.remove(obj); }
-
-    function initState() {
-      return {
-        running: false, paused: false,
-        score: 0, coins: 0, distance: 0, speed: BASE_SPEED, frame: 0, spawnTimer: 0,
-        player: { lane: 1, x: 0, y: 0, vy: 0, baseY: 0, onGround: true, jumping: false, sliding: false, slideTimer: 0, invincible: false, invTimer: 0, w: 50, h: 75, jumpForce: JUMP_FORCE },
-        obstacles: [], coins_obj: [], particles: [], powerups: [],
-        multiplier: 1, multTimer: 0,
-        combo: 0, maxCombo: 0, lastComboTime: 0,
-        magnetActive: false, magnetTimer: 0,
-        shieldActive: false, shieldTimer: 0,
-        speedBoostActive: false, speedBoostTimer: 0,
-        doubleScoreActive: false, doubleScoreTimer: 0,
-        slowMoActive: false, slowMoTimer: 0,
-        superJumpActive: false, superJumpTimer: 0,
-        coinRainActive: false, coinRainTimer: 0,
-        ghostActive: false, ghostTimer: 0,
-        skateActive: false, skateTimer: 0, skateCooldown: 0,
-        cameraShake: 0,
-        patrickGap: 5.2,
-        patrickLane: 1,
-        patrickX: 0,
-      };
-    }
-
-    function createSpongeBob() {
-      const group = new THREE.Group();
-      const headGeo = new THREE.SphereGeometry(0.9, 16, 16);
-      const headMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.6, metalness: 0.05 });
-      head = new THREE.Mesh(headGeo, headMat);
-      head.position.set(0, 2.2, 0);
-      group.add(head);
-      const browGeo = new THREE.BoxGeometry(0.32, 0.08, 0.15);
-      const browMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-      const leftBrow = new THREE.Mesh(browGeo, browMat);
-      leftBrow.position.set(-0.38, 2.55, 0.85);
-      leftBrow.rotation.z = -0.15;
-      group.add(leftBrow);
-      const rightBrow = new THREE.Mesh(browGeo, browMat);
-      rightBrow.position.set(0.38, 2.55, 0.85);
-      rightBrow.rotation.z = 0.15;
-      group.add(rightBrow);
-      const eyeGeo = new THREE.SphereGeometry(0.32, 12, 12);
-      const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
-      const leftEye = new THREE.Mesh(eyeGeo, eyeMat); leftEye.position.set(-0.38, 2.32, 0.82); group.add(leftEye);
-      const rightEye = new THREE.Mesh(eyeGeo, eyeMat); rightEye.position.set(0.38, 2.32, 0.82); group.add(rightEye);
-      const pupilGeo = new THREE.SphereGeometry(0.14, 8, 8);
-      const pupilMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-      const leftPupil = new THREE.Mesh(pupilGeo, pupilMat); leftPupil.position.set(-0.38, 2.32, 1.08); group.add(leftPupil);
-      const rightPupil = new THREE.Mesh(pupilGeo, pupilMat); rightPupil.position.set(0.38, 2.32, 1.08); group.add(rightPupil);
-      const smileGeo = new THREE.TorusGeometry(0.42, 0.07, 8, 12, Math.PI);
-      const smileMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-      const smile = new THREE.Mesh(smileGeo, smileMat); smile.position.set(0, 1.9, 0.95); smile.rotation.x = -0.4; group.add(smile);
-      const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.26, 0.14), new THREE.MeshStandardMaterial({ color: 0xeeeeee }));
-      tooth.position.set(0, 1.76, 1.15); group.add(tooth);
-      const shirt = new THREE.Mesh(new THREE.BoxGeometry(1.42, 1.35, 1.0), new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.7 }));
-      shirt.position.set(0, 1.05, 0); group.add(shirt);
-      const body = new THREE.Mesh(new THREE.BoxGeometry(1.35, 1.25, 0.92), new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.55 }));
-      body.position.set(0, 1.08, 0); group.add(body);
-      const tie = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.9, 0.15), new THREE.MeshStandardMaterial({ color: 0xcc0000 }));
-      tie.position.set(0, 0.95, 0.55); group.add(tie);
-      const pants = new THREE.Mesh(new THREE.BoxGeometry(1.48, 0.95, 1.08), new THREE.MeshStandardMaterial({ color: 0x0066cc, roughness: 0.65 }));
-      pants.position.set(0, 0.28, 0); group.add(pants);
-      const belt = new THREE.Mesh(new THREE.BoxGeometry(1.58, 0.18, 1.18), new THREE.MeshStandardMaterial({ color: 0xcc0000 }));
-      belt.position.set(0, 0.72, 0); group.add(belt);
-      const armGeo = new THREE.CylinderGeometry(0.18, 0.17, 0.95, 8);
-      const armMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.55 });
-      leftArm = new THREE.Mesh(armGeo, armMat); leftArm.position.set(-0.9, 1.15, 0); leftArm.rotation.z = 0.5; group.add(leftArm);
-      rightArm = new THREE.Mesh(armGeo, armMat); rightArm.position.set(0.9, 1.15, 0); rightArm.rotation.z = -0.5; group.add(rightArm);
-      const handGeo = new THREE.SphereGeometry(0.22, 8, 8);
-      const handMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.6 });
-      const leftHand = new THREE.Mesh(handGeo, handMat); leftHand.position.set(-1.25, 0.85, 0); group.add(leftHand);
-      const rightHand = new THREE.Mesh(handGeo, handMat); rightHand.position.set(1.25, 0.85, 0); group.add(rightHand);
-      const legGeo = new THREE.CylinderGeometry(0.22, 0.19, 1.05, 8);
-      const legMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.55 });
-      leftLeg = new THREE.Mesh(legGeo, legMat); leftLeg.position.set(-0.42, -0.2, 0); group.add(leftLeg);
-      rightLeg = new THREE.Mesh(legGeo, legMat); rightLeg.position.set(0.42, -0.2, 0); group.add(rightLeg);
-      const shoeMat = new THREE.MeshStandardMaterial({ color: 0x5c3317, roughness: 0.85 });
-      const leftShoe = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.28, 0.72), shoeMat); leftShoe.position.set(-0.42, -0.72, 0.12); group.add(leftShoe);
-      const rightShoe = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.28, 0.72), shoeMat); rightShoe.position.set(0.42, -0.72, 0.12); group.add(rightShoe);
-      group.scale.set(1.15, 1.15, 1.15);
-      group.position.y = 0.35;
-      return group;
-    }
-
-    function createPatrick() {
-      const group = new THREE.Group();
-      patHead = new THREE.Mesh(
-        new THREE.SphereGeometry(0.95, 14, 14),
-        new THREE.MeshStandardMaterial({ color: 0xff8ab0, roughness: 0.7 })
-      );
-      patHead.position.set(0, 1.85, 0);
-      patHead.scale.set(1.05, 0.95, 0.9);
-      group.add(patHead);
-      const body = new THREE.Mesh(
-        new THREE.SphereGeometry(1.15, 14, 14),
-        new THREE.MeshStandardMaterial({ color: 0xff8ab0, roughness: 0.7 })
-      );
-      body.position.set(0, 0.85, 0);
-      body.scale.set(1.15, 0.95, 0.95);
-      group.add(body);
-      const shorts = new THREE.Mesh(
-        new THREE.BoxGeometry(2.15, 0.7, 1.35),
-        new THREE.MeshStandardMaterial({ color: 0x3db54a, roughness: 0.65 })
-      );
-      shorts.position.set(0, 0.28, 0);
-      group.add(shorts);
-      const flowerMat = new THREE.MeshBasicMaterial({ color: 0x7b3fa0 });
-      for (const fx of [-0.55, 0, 0.55]) {
-        const flower = new THREE.Mesh(new THREE.CircleGeometry(0.16, 8), flowerMat);
-        flower.position.set(fx, 0.28, 0.69);
-        group.add(flower);
-      }
-      const eyeGeo = new THREE.SphereGeometry(0.22, 10, 10);
-      const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
-      const leftEye = new THREE.Mesh(eyeGeo, eyeMat); leftEye.position.set(-0.28, 1.95, 0.78); group.add(leftEye);
-      const rightEye = new THREE.Mesh(eyeGeo, eyeMat); rightEye.position.set(0.28, 1.95, 0.78); group.add(rightEye);
-      const pupilGeo = new THREE.SphereGeometry(0.1, 8, 8);
-      const pupilMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-      const lp = new THREE.Mesh(pupilGeo, pupilMat); lp.position.set(-0.28, 1.95, 0.96); group.add(lp);
-      const rp = new THREE.Mesh(pupilGeo, pupilMat); rp.position.set(0.28, 1.95, 0.96); group.add(rp);
-      const browMat = new THREE.MeshStandardMaterial({ color: 0x5a2a18 });
-      const lb = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.06, 0.1), browMat);
-      lb.position.set(-0.28, 2.18, 0.8); group.add(lb);
-      const rb = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.06, 0.1), browMat);
-      rb.position.set(0.28, 2.18, 0.8); group.add(rb);
-      const smile = new THREE.Mesh(
-        new THREE.TorusGeometry(0.28, 0.05, 8, 12, Math.PI),
-        new THREE.MeshStandardMaterial({ color: 0x222222 })
-      );
-      smile.position.set(0, 1.62, 0.82); smile.rotation.x = -0.5; group.add(smile);
-      const armGeo = new THREE.CylinderGeometry(0.16, 0.2, 0.95, 8);
-      const armMat = new THREE.MeshStandardMaterial({ color: 0xff8ab0, roughness: 0.7 });
-      patLeftArm = new THREE.Mesh(armGeo, armMat); patLeftArm.position.set(-1.15, 1.05, 0); patLeftArm.rotation.z = 0.55; group.add(patLeftArm);
-      patRightArm = new THREE.Mesh(armGeo, armMat); patRightArm.position.set(1.15, 1.05, 0); patRightArm.rotation.z = -0.55; group.add(patRightArm);
-      const handGeo = new THREE.SphereGeometry(0.22, 8, 8);
-      const leftHand = new THREE.Mesh(handGeo, armMat); leftHand.position.set(-1.45, 0.7, 0); group.add(leftHand);
-      const rightHand = new THREE.Mesh(handGeo, armMat); rightHand.position.set(1.45, 0.7, 0); group.add(rightHand);
-      const legGeo = new THREE.CylinderGeometry(0.22, 0.2, 0.7, 8);
-      patLeftLeg = new THREE.Mesh(legGeo, armMat); patLeftLeg.position.set(-0.4, -0.22, 0); group.add(patLeftLeg);
-      patRightLeg = new THREE.Mesh(legGeo, armMat); patRightLeg.position.set(0.4, -0.22, 0); group.add(patRightLeg);
-      const shoeMat = new THREE.MeshStandardMaterial({ color: 0x5c3317, roughness: 0.85 });
-      const ls = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.22, 0.58), shoeMat); ls.position.set(-0.4, -0.58, 0.08); group.add(ls);
-      const rs = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.22, 0.58), shoeMat); rs.position.set(0.4, -0.58, 0.08); group.add(rs);
-      group.scale.set(0.95, 0.95, 0.95);
-      group.position.set(0, 0.25, 5.2);
-      return group;
-    }
-
-    function animatePatrick() {
-      if (!patrickMesh || !state || !patLeftLeg || !patRightLeg) return;
-      const t = state.frame * 0.22;
-      const swing = Math.sin(t) * 1.05;
-      patLeftLeg.rotation.x = swing * 0.9;
-      patRightLeg.rotation.x = -swing * 0.9;
-      if (patLeftArm && patRightArm) {
-        patLeftArm.rotation.x = -swing * 0.7;
-        patRightArm.rotation.x = swing * 0.7;
-      }
-      if (patHead) {
-        patHead.rotation.z = Math.sin(t * 1.4) * 0.08;
-        patHead.position.y = 1.85 + Math.sin(t * 2.2) * 0.04;
-      }
-      patrickMesh.position.y = 0.25 + Math.sin(t * 2.2) * 0.07;
-    }
-
-    function updatePatrick() {
-      if (!patrickMesh || !state || !state.running || state.paused) return;
-      const p = state.player;
-      const speedMul = state.slowMoActive ? 0.42 : 1;
-      let close = 0.011 * speedMul;
-      if (state.speedBoostActive) close *= 0.35;
-      if (state.skateActive) close *= 0.22;
-      if (state.ghostActive) close *= 0.15;
-      if (state.speed < 6) close *= 1.45;
-      if (state.speed > 9) close *= 0.7;
-      state.patrickGap -= close;
-      if (state.patrickGap > 6.4) state.patrickGap = 6.4;
-      const warn = document.getElementById('patrick-warning');
-      if (warn) warn.style.opacity = state.patrickGap < 2.6 ? '1' : '0';
-      if (state.patrickGap <= 1.15) {
-        spawnParticles(p.lane, p.x, 0xff8ab0, 28);
-        playSound('hit');
-        if (warn) warn.style.opacity = '0';
-        gameOver();
-        return;
-      }
-      const targetLaneX = (p.lane - 1) * 4.9;
-      state.patrickX += (targetLaneX - state.patrickX) * 0.08;
-      patrickMesh.position.x = state.patrickX;
-      patrickMesh.position.z = Math.max(1.15, state.patrickGap);
-      animatePatrick();
-    }
-
-    function pushPatrickBack(amount) {
-      if (!state) return;
-      state.patrickGap = Math.min(6.4, state.patrickGap + amount);
-    }
-
-    function animateSpongeBob() {
-      if (!playerMesh || !state || !head || !leftLeg || !rightLeg || !leftArm || !rightArm) return;
-      const p = state.player;
-      const t = state.frame * 0.19;
-      const isFast = state.speed > 9;
-      const runSpeed = isFast ? 1.3 : 1.0;
-      if (p.onGround && !p.sliding && state.running) {
-        const swing = Math.sin(t * runSpeed) * 1.02;
-        leftLeg.rotation.x = swing * 0.95;
-        rightLeg.rotation.x = -swing * 0.95;
-        leftArm.rotation.x = -swing * 0.75;
-        rightArm.rotation.x = swing * 0.75;
-        head.rotation.z = Math.sin(t * 1.55) * 0.055;
-        head.position.y = 2.15 + Math.sin(t * 2.1) * 0.035;
-        playerMesh.scale.y = 1.18 + Math.sin(t * 2.7) * 0.03;
-        playerMesh.position.y = 0.35 + Math.sin(t * 2.1) * 0.08;
-      } else if (p.sliding) {
-        leftLeg.rotation.x = 1.7;
-        rightLeg.rotation.x = 1.7;
-        leftArm.rotation.x = -0.65;
-        rightArm.rotation.x = -0.65;
-        head.rotation.z = 0;
-        playerMesh.scale.y = 0.52;
-        playerMesh.position.y = 0.1;
-      } else if (!p.onGround) {
-        leftLeg.rotation.x = -0.7;
-        rightLeg.rotation.x = -0.7;
-        leftArm.rotation.x = 0.9;
-        rightArm.rotation.x = -0.9;
-        head.rotation.z = 0;
-        playerMesh.scale.y = 1.18;
-        playerMesh.position.y = 0.35;
-      } else {
-        leftLeg.rotation.x = 0; rightLeg.rotation.x = 0;
-        leftArm.rotation.x = 0.38; rightArm.rotation.x = -0.38;
-        head.rotation.z = 0;
-        playerMesh.scale.y = 1.18;
-        playerMesh.position.y = 0.35;
-      }
-      if (state.skateActive !== playerMesh.userData.skateTinted) {
-        playerMesh.userData.skateTinted = state.skateActive;
-        playerMesh.traverse(child => {
-          if (child.material && child.material.color) {
-            if (child.userData.originalColor == null) child.userData.originalColor = child.material.color.getHex();
-            child.material.color.setHex(state.skateActive ? 0x00ff99 : child.userData.originalColor);
-          }
-        });
-      }
-      if (p.invincible || state.shieldActive || state.skateActive) {
-        playerMesh.visible = Math.floor(state.frame / 3) % 2 === 0;
-      } else {
-        playerMesh.visible = true;
-      }
-    }
-
-    function createBackgroundBuilding(x, z, width, height, color) {
-      const group = new THREE.Group();
-      const building = new THREE.Mesh(
-        new THREE.BoxGeometry(width, height, 8),
-        new THREE.MeshLambertMaterial({ color: color, emissive: 0x112233, emissiveIntensity: 0.25 })
-      );
-      building.position.y = height / 2;
-      group.add(building);
-      const innerSign = x >= 0 ? -1 : 1;
-      const winCount = IS_MOBILE ? 3 : 5;
-      const winMatA = new THREE.MeshBasicMaterial({ color: 0x00f5d4 });
-      const winMatB = new THREE.MeshBasicMaterial({ color: 0xff2e88 });
-      for (let i = 0; i < winCount; i++) {
-        const winMat = Math.random() > 0.5 ? winMatA : winMatB;
-        const winFront = new THREE.Mesh(SHARED.winFrontGeo, winMat);
-        winFront.scale.x = width * 0.62;
-        winFront.position.set(0, 2.2 + i * 3.1, 4.15);
-        group.add(winFront);
-        const winSide = new THREE.Mesh(SHARED.winSideGeo, winMat);
-        winSide.position.set(innerSign * (width / 2 + 0.05), 2.2 + i * 3.1, 0);
-        group.add(winSide);
-      }
-      group.position.set(x, 0, z);
-      return group;
-    }
-
-    function initBackground() {
-      backgroundBuildings = [];
-      const count = IS_MOBILE ? 14 : 20;
-      for (let i = 0; i < count; i++) {
-        const side = i % 2 === 0 ? -1 : 1;
-        const x = side * (20 + Math.random() * 18);
-        const z = -40 - i * 34;
-        const w = 6 + Math.random() * 8;
-        const h = 16 + Math.random() * 28;
-        const color = Math.random() > 0.5 ? 0x1a1a3a : 0x222244;
-        const building = createBackgroundBuilding(x, z, w, h, color);
-        scene.add(building);
-        backgroundBuildings.push(building);
-      }
-    }
-
-    function updateBackground() {
-      if (!state) return;
-      const speed = state.speed * (state.slowMoActive ? 0.45 : 1);
-      backgroundBuildings.forEach(b => {
-        b.position.z += speed * 0.32;
-        if (b.position.z > 40) {
-          b.position.z = -520 - Math.random() * 80;
-          const side = b.position.x >= 0 ? 1 : -1;
-          b.position.x = side * (20 + Math.random() * 18);
-        }
-      });
-    }
-
-    function spawnSpeedLines() {
-      if (!state || state.speed < 8) return;
-      if (speedLines.length >= MAX_SPEED_LINES) return;
-      const line = new THREE.Mesh(SHARED.speedLineGeo, SHARED.speedLineMat.clone());
-      line.position.set((Math.random() - 0.5) * 14, 1.5 + Math.random() * 4, -18);
-      line.rotation.z = (Math.random() - 0.5) * 0.3;
-      scene.add(line);
-      speedLines.push({ mesh: line, life: 6 + Math.random() * 4 });
-    }
-
-    function updateSpeedLines() {
-      speedLines = speedLines.filter(line => {
-        line.mesh.position.z += state.speed * 0.45;
-        line.life--;
-        line.mesh.material.opacity *= 0.82;
-        if (line.life <= 0) {
-          disposeObject(line.mesh);
-          return false;
-        }
-        return true;
-      });
-    }
-
-    function updatePlayerTrail() {
-      if (!playerMesh || !state) return;
-      const speedFactor = Math.min((state.speed - 5.4) / 5, 1.1);
-      if (speedFactor < 0.25) return;
-      if (state.frame % 3 === 0 && playerTrail.length < MAX_TRAIL) {
-        const trailMesh = new THREE.Mesh(SHARED.trailGeo, SHARED.trailMat.clone());
-        trailMesh.position.copy(playerMesh.position);
-        trailMesh.scale.set(1.2, playerMesh.scale.y || 1.15, 1.2);
-        scene.add(trailMesh);
-        playerTrail.push({ mesh: trailMesh, life: 6 + Math.floor(speedFactor * 4) });
-      }
-      playerTrail = playerTrail.filter(trail => {
-        trail.life--;
-        trail.mesh.material.opacity *= 0.78;
-        trail.mesh.position.z += 0.15;
-        if (trail.life <= 0) {
-          disposeObject(trail.mesh);
-          return false;
-        }
-        return true;
-      });
-    }
-
-    function createObstacleMesh(type) {
-      let mesh;
-      if (type === 'train') {
-        mesh = new THREE.Mesh(new THREE.BoxGeometry(3.3, 2.7, 8.5), new THREE.MeshStandardMaterial({ color: 0x2a2a4a, metalness: 0.7 }));
-        const lights = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.22, 8), new THREE.MeshBasicMaterial({ color: 0xff00aa }));
-        lights.position.y = 0.95; mesh.add(lights);
-        mesh.userDataY = 1.35;
-      } else if (type === 'barrier') {
-        mesh = new THREE.Mesh(new THREE.BoxGeometry(2.9, 1.85, 0.65), new THREE.MeshStandardMaterial({ color: 0xff5500, roughness: 0.5 }));
-        mesh.userDataY = 0.92;
-      } else if (type === 'low_barrier') {
-        mesh = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.6, 0.55), new THREE.MeshStandardMaterial({ color: 0x00cc99, emissive: 0x00aa77, emissiveIntensity: 0.45 }));
-        mesh.position.y = 1.75; mesh.userDataY = 1.75;
-      } else if (type === 'drone') {
-        mesh = new THREE.Group();
-        mesh.add(new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.6, 1.8), new THREE.MeshStandardMaterial({ color: 0x444466, metalness: 0.8 })));
-        const rotor = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 0.12, 20), new THREE.MeshStandardMaterial({ color: 0x222233 }));
-        rotor.position.y = 0.5; mesh.add(rotor);
-        mesh.userDataY = 2.4;
-      } else if (type === 'laser') {
-        mesh = new THREE.Mesh(new THREE.BoxGeometry(3.6, 3.2, 0.35), new THREE.MeshStandardMaterial({ color: 0xff00ff, emissive: 0xff00ff, emissiveIntensity: 0.6 }));
-        mesh.userDataY = 1.6;
-      } else if (type === 'moving_barrier') {
-        mesh = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.9, 0.7), new THREE.MeshStandardMaterial({ color: 0xff8800, roughness: 0.5 }));
-        mesh.userDataY = 0.95;
-      } else if (type === 'electric_fence') {
-        mesh = new THREE.Mesh(new THREE.BoxGeometry(3.4, 4.5, 0.25), new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 0.8 }));
-        mesh.userDataY = 2.25;
-      } else if (type === 'spinning_blade') {
-        mesh = new THREE.Group();
-        const blade = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.25, 0.8), new THREE.MeshStandardMaterial({ color: 0xff00aa, emissive: 0xff00aa, emissiveIntensity: 0.6 }));
-        mesh.add(blade);
-        mesh.userDataY = 1.8;
-      } else if (type === 'holo_wall') {
-        mesh = new THREE.Mesh(new THREE.BoxGeometry(3.2, 4.9, 0.4), new THREE.MeshStandardMaterial({
-          color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 0.9, transparent: true, opacity: 0.7
-        }));
-        mesh.userDataY = 2.8;
-      }
+    const pool = { particles: [], trails: [], lines: [] };
+    function recycle(mesh, bucket) { if (!mesh) return; scene.remove(mesh); mesh.visible = false; if (bucket.length < 48) bucket.push(mesh); }
+    function takePooled(bucket, geo, mat) {
+      const mesh = bucket.pop() || new THREE.Mesh(geo, mat);
+      mesh.visible = true;
+      if (mesh.material && mesh.material.opacity != null && mat && mat.opacity != null) mesh.material.opacity = mat.opacity;
       return mesh;
     }
-
-    function createCoinMesh() {
-      return new THREE.Mesh(SHARED.coinGeo, SHARED.coinMat);
+    function particleMatFor(colorHex) {
+      if (colorHex === 0xff8ab0) return SHARED.particlePink;
+      if (colorHex === 0x00f5d4 || colorHex === 0x00ffcc) return SHARED.particleCyan;
+      if (colorHex === 0xff3366) return SHARED.particleRed;
+      return SHARED.particleGold;
     }
-
-    function createPowerupMesh(type) {
-      if (type === 'magnet') return new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.18, 12, 24), new THREE.MeshStandardMaterial({ color: 0x00aaff, metalness: 0.7, emissive: 0x00aaff, emissiveIntensity: 0.4 }));
-      if (type === 'shield') return new THREE.Mesh(new THREE.OctahedronGeometry(0.65, 0), new THREE.MeshStandardMaterial({ color: 0x00ffff, metalness: 0.85, emissive: 0x00ffff, emissiveIntensity: 0.5 }));
-      if (type === 'speed') return new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.2, 4), new THREE.MeshStandardMaterial({ color: 0xff00ff, metalness: 0.7, emissive: 0xff00ff, emissiveIntensity: 0.35 }));
-      if (type === 'double') return new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.9), new THREE.MeshStandardMaterial({ color: 0xffdd00, metalness: 0.6, emissive: 0xffdd00, emissiveIntensity: 0.4 }));
-      if (type === 'slow') return new THREE.Mesh(new THREE.TetrahedronGeometry(0.7), new THREE.MeshStandardMaterial({ color: 0x00ff88, metalness: 0.6, emissive: 0x00ff88, emissiveIntensity: 0.4 }));
-      if (type === 'superjump') return new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.3, 5), new THREE.MeshStandardMaterial({ color: 0x00ffcc, metalness: 0.7, emissive: 0x00ffcc, emissiveIntensity: 0.4 }));
-      if (type === 'coinrain') return new THREE.Mesh(new THREE.SphereGeometry(0.6, 20, 20), new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.8, emissive: 0xffd700, emissiveIntensity: 0.5 }));
-      if (type === 'ghost') return new THREE.Mesh(new THREE.IcosahedronGeometry(0.7, 0), new THREE.MeshStandardMaterial({ color: 0x88ffcc, metalness: 0.3, emissive: 0x44ffaa, emissiveIntensity: 0.7, transparent: true, opacity: 0.75 }));
-      if (type === 'skate') return new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.35, 0.9), new THREE.MeshStandardMaterial({ color: 0x00ff99, metalness: 0.8, emissive: 0x00ff99, emissiveIntensity: 0.5 }));
+    function initState() {
+      return {
+        running:false, paused:false, score:0, coins:0, distance:0, speed:BASE_SPEED, frame:0, spawnTimer:0,
+        player:{ lane:1,x:0,y:0,vy:0,baseY:0,onGround:true,jumping:false,sliding:false,crouching:false,
+          slideTimer:0,slideHold:false,coyote:0,jumpBuffer:0,holdingJump:false,fastFall:false,squash:0,
+          runPhase:0,strideImpact:0,visualX:0,laneVel:0,leanX:0,leanZ:0,blink:0,
+          invincible:true,invTimer:START_IFRAMES,w:50,h:75,jumpForce:JUMP_FORCE },
+        slideBoost:1, obstacles:[], coins_obj:[], particles:[], powerups:[],
+        multiplier:1, multTimer:0, combo:0, maxCombo:0, lastComboTime:0,
+        magnetActive:false,magnetTimer:0, shieldActive:false,shieldTimer:0,
+        speedBoostActive:false,speedBoostTimer:0, doubleScoreActive:false,doubleScoreTimer:0,
+        slowMoActive:false,slowMoTimer:0, superJumpActive:false,superJumpTimer:0,
+        coinRainActive:false,coinRainTimer:0, ghostActive:false,ghostTimer:0,
+        skateActive:false,skateTimer:0,skateCooldown:0, cameraShake:0,
+        patrickGap:5.2, patrickLane:1, patrickX:0
+      };
+    }
+    function createSpongeBob() {
+      const group = new THREE.Group();
+      const yellow = new THREE.MeshLambertMaterial({color:0xffe14a});
+      const holeMat = new THREE.MeshLambertMaterial({color:0xd4a017});
+      const white = new THREE.MeshLambertMaterial({color:0xf7f7f7});
+      const brown = new THREE.MeshLambertMaterial({color:0x7a4a12});
+      const black = new THREE.MeshLambertMaterial({color:0x1a120c});
+      const red = new THREE.MeshLambertMaterial({color:0xd10600});
+      const lashMat = new THREE.MeshBasicMaterial({color:0x2a1208});
+      head = new THREE.Group(); head.position.set(0,1.55,0); group.add(head);
+      const sponge = new THREE.Mesh(new THREE.BoxGeometry(1.62,1.78,0.78), yellow); sponge.position.y=0.12; head.add(sponge);
+      const holeGeo = new THREE.CircleGeometry(0.08,8);
+      [[-0.55,0.62,0.40],[0.52,0.55,0.40],[-0.18,0.78,0.40],[0.22,-0.55,0.40],[-0.58,-0.22,0.40],[0.58,0.08,0.40]].forEach(([hx,hy,hz])=>{
+        const hole=new THREE.Mesh(holeGeo,holeMat); hole.position.set(hx,hy,hz); if(hz<0) hole.rotation.y=Math.PI; head.add(hole);
+      });
+      const eyeWhiteMat = new THREE.MeshLambertMaterial({color:0xffffff});
+      const leftEye=new THREE.Mesh(new THREE.SphereGeometry(0.36,12,12),eyeWhiteMat); leftEye.position.set(-0.34,0.42,0.42); leftEye.scale.set(1,1.05,0.72); head.add(leftEye);
+      const rightEye=new THREE.Mesh(new THREE.SphereGeometry(0.36,12,12),eyeWhiteMat); rightEye.position.set(0.34,0.42,0.42); rightEye.scale.set(1,1.05,0.72); head.add(rightEye);
+      const irisMat=new THREE.MeshLambertMaterial({color:0x3aa0e8});
+      const leftIris=new THREE.Mesh(new THREE.SphereGeometry(0.16,10,10),irisMat); leftIris.position.set(-0.34,0.40,0.62); head.add(leftIris);
+      const rightIris=new THREE.Mesh(new THREE.SphereGeometry(0.16,10,10),irisMat); rightIris.position.set(0.34,0.40,0.62); head.add(rightIris);
+      const pupilMat=new THREE.MeshBasicMaterial({color:0x111111});
+      leftPupil=new THREE.Mesh(new THREE.SphereGeometry(0.08,8,8),pupilMat); leftPupil.position.set(-0.34,0.40,0.74); head.add(leftPupil);
+      rightPupil=new THREE.Mesh(new THREE.SphereGeometry(0.08,8,8),pupilMat); rightPupil.position.set(0.34,0.40,0.74); head.add(rightPupil);
+      leftEyelid=new THREE.Mesh(new THREE.BoxGeometry(0.62,0.34,0.18),yellow); leftEyelid.position.set(-0.34,0.62,0.58); leftEyelid.scale.y=0.08; head.add(leftEyelid);
+      rightEyelid=new THREE.Mesh(new THREE.BoxGeometry(0.62,0.34,0.18),yellow); rightEyelid.position.set(0.34,0.62,0.58); rightEyelid.scale.y=0.08; head.add(rightEyelid);
+      const smile=new THREE.Mesh(new THREE.TorusGeometry(0.36,0.045,6,12,Math.PI), new THREE.MeshBasicMaterial({color:0x3a1c12}));
+      smile.position.set(0,-0.18,0.42); smile.rotation.x=-0.15; head.add(smile);
+      const toothMat=new THREE.MeshLambertMaterial({color:0xffffff});
+      const toothL=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.22,0.08),toothMat); toothL.position.set(-0.09,-0.28,0.44); head.add(toothL);
+      const toothR=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.22,0.08),toothMat); toothR.position.set(0.09,-0.28,0.44); head.add(toothR);
+      const shirt=new THREE.Mesh(new THREE.BoxGeometry(1.68,0.55,0.88),white); shirt.position.set(0,0.62,0); group.add(shirt);
+      const tie=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.55,0.08),red); tie.position.set(0,0.58,0.46); group.add(tie);
+      const pants=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.62,0.92),brown); pants.position.set(0,0.18,0); group.add(pants);
+      const belt=new THREE.Mesh(new THREE.BoxGeometry(1.76,0.12,0.98),black); belt.position.set(0,0.46,0); group.add(belt);
+      function makeArm(side){
+        const pivot=new THREE.Group(); pivot.position.set(side*0.92,0.78,0);
+        const arm=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.13,0.95,8),yellow); arm.position.y=-0.42; arm.rotation.z=side*0.12; pivot.add(arm);
+        const hand=new THREE.Mesh(new THREE.SphereGeometry(0.16,8,8),yellow); hand.position.set(side*0.08,-0.92,0); pivot.add(hand);
+        group.add(pivot); return pivot;
+      }
+      leftArm=makeArm(-1); rightArm=makeArm(1);
+      function makeLeg(side){
+        const pivot=new THREE.Group(); pivot.position.set(side*0.32,0.02,0);
+        const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.11,0.72,8),yellow); leg.position.y=-0.38; pivot.add(leg);
+        const sock=new THREE.Mesh(new THREE.CylinderGeometry(0.125,0.125,0.32,8),white); sock.position.y=-0.78; pivot.add(sock);
+        const shoe=new THREE.Mesh(new THREE.BoxGeometry(0.36,0.2,0.58),black); shoe.position.set(0,-1.02,0.12); pivot.add(shoe);
+        group.add(pivot); return {pivot,shoe};
+      }
+      const L=makeLeg(-1), R=makeLeg(1); leftLeg=L.pivot; rightLeg=R.pivot; leftShoe=L.shoe; rightShoe=R.shoe;
+      skateBoard=new THREE.Group();
+      const deck=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.08,1.35), new THREE.MeshLambertMaterial({color:0x00ff99,emissive:0x00aa66,emissiveIntensity:0.35}));
+      deck.position.y=-1.18; skateBoard.add(deck); skateBoard.visible=false; group.add(skateBoard);
+      group.scale.set(1.12,1.12,1.12); group.position.y=1.18; return group;
+    }
+    function createPatrick() {
+      const group=new THREE.Group();
+      const pink=new THREE.MeshLambertMaterial({color:0xff8fb8,emissive:0x3a1020,emissiveIntensity:0.18});
+      const green=new THREE.MeshLambertMaterial({color:0x3db54a});
+      const white=new THREE.MeshLambertMaterial({color:0xffffff});
+      const dark=new THREE.MeshBasicMaterial({color:0x1a120c});
+      const shoeMat=new THREE.MeshLambertMaterial({color:0x4a2a14});
+      patBody=new THREE.Mesh(new THREE.SphereGeometry(1.05,12,10),pink); patBody.position.set(0,0.95,0); patBody.scale.set(1.18,1.05,0.95); group.add(patBody);
+      patHead=new THREE.Group(); patHead.position.set(0,1.95,0);
+      const headCore=new THREE.Mesh(new THREE.SphereGeometry(0.72,12,10),pink); headCore.scale.set(1.05,1.15,0.9); patHead.add(headCore);
+      const tip=new THREE.Mesh(new THREE.ConeGeometry(0.42,0.85,5),pink); tip.position.y=0.78; patHead.add(tip);
+      group.add(patHead);
+      const eyeL=new THREE.Mesh(new THREE.SphereGeometry(0.2,10,10),white); eyeL.position.set(-0.22,0.08,0.58); patHead.add(eyeL);
+      const eyeR=new THREE.Mesh(new THREE.SphereGeometry(0.2,10,10),white); eyeR.position.set(0.22,0.08,0.58); patHead.add(eyeR);
+      const pupilL=new THREE.Mesh(new THREE.SphereGeometry(0.09,8,8),dark); pupilL.position.set(-0.22,0.05,0.74); patHead.add(pupilL);
+      const pupilR=new THREE.Mesh(new THREE.SphereGeometry(0.09,8,8),dark); pupilR.position.set(0.22,0.05,0.74); patHead.add(pupilR);
+      patLeftBrow=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.06,0.08),dark); patLeftBrow.position.set(-0.22,0.32,0.62); patHead.add(patLeftBrow);
+      patRightBrow=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.06,0.08),dark); patRightBrow.position.set(0.22,0.32,0.62); patHead.add(patRightBrow);
+      const shorts=new THREE.Mesh(new THREE.BoxGeometry(2.05,0.62,1.25),green); shorts.position.set(0,0.32,0); group.add(shorts);
+      function makeArm(side){ const pivot=new THREE.Group(); pivot.position.set(side*1.05,1.05,0);
+        const arm=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.2,0.95,7),pink); arm.position.y=-0.4; arm.rotation.z=side*0.2; pivot.add(arm);
+        const hand=new THREE.Mesh(new THREE.SphereGeometry(0.2,7,7),pink); hand.position.set(side*0.12,-0.9,0); pivot.add(hand); group.add(pivot); return pivot; }
+      patLeftArm=makeArm(-1); patRightArm=makeArm(1);
+      function makeLeg(side){ const pivot=new THREE.Group(); pivot.position.set(side*0.38,0.08,0);
+        const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.16,0.62,7),pink); leg.position.y=-0.32; pivot.add(leg);
+        const shoe=new THREE.Mesh(new THREE.BoxGeometry(0.38,0.18,0.52),shoeMat); shoe.position.set(0,-0.68,0.1); pivot.add(shoe); group.add(pivot); return pivot; }
+      patLeftLeg=makeLeg(-1); patRightLeg=makeLeg(1);
+      group.scale.set(0.95,0.95,0.95); group.position.set(0,0.85,5.2); return group;
+    }
+    function animatePatrick() {
+      if (!patrickMesh||!state||!patLeftLeg||!patRightLeg) return;
+      const close=Math.max(0,1-(state.patrickGap-1.15)/4);
+      const cadence=0.13+(state.speed||BASE_SPEED)*0.012;
+      state.patPhase=(state.patPhase||0)+cadence;
+      const swing=Math.sin(state.patPhase)*(0.85+close*0.35);
+      const wobble=Math.sin(state.patPhase*0.55)*0.12;
+      patLeftLeg.rotation.x=swing*1.05; patRightLeg.rotation.x=-swing*1.05;
+      if (patLeftArm&&patRightArm){ patLeftArm.rotation.x=-swing*0.75-close*0.7; patRightArm.rotation.x=swing*0.75-close*0.7; }
+      if (patHead){ patHead.rotation.z=wobble; patHead.rotation.x=close*0.18; patHead.position.y=1.95+Math.abs(Math.sin(state.patPhase))*0.06; }
+      if (patBody){ patBody.scale.y=1.05+Math.sin(state.patPhase*2)*0.04; }
+      if (patLeftBrow&&patRightBrow){ patLeftBrow.rotation.z=-0.15-close*0.45; patRightBrow.rotation.z=0.15+close*0.45; }
+      patrickMesh.position.y=0.85+Math.abs(Math.sin(state.patPhase))*0.1;
+      patrickMesh.rotation.z=wobble*0.35;
+    }
+    function updatePatrick() {
+      if (!patrickMesh||!state||!state.running||state.paused) return;
+      const p=state.player; const speedMul=state.slowMoActive?0.42:1;
+      let close=0.011*speedMul;
+      if (state.speedBoostActive) close*=0.35; if (state.skateActive) close*=0.22; if (state.ghostActive) close*=0.15;
+      if (state.speed<6) close*=1.45; if (state.speed>9) close*=0.7;
+      state.patrickGap-=close; if (state.patrickGap>6.4) state.patrickGap=6.4;
+      const warn=document.getElementById('patrick-warning');
+      if (warn) warn.style.opacity=state.patrickGap<2.6?'1':'0';
+      if (state.patrickGap<=1.15){ spawnParticles(p.lane,p.x,0xff8ab0,16); playSound('hit'); if(warn) warn.style.opacity='0'; gameOver(); return; }
+      const targetLaneX=p.visualX||(p.lane-1)*4.9;
+      state.patrickX+=(targetLaneX-state.patrickX)*0.07;
+      patrickMesh.position.x=state.patrickX; patrickMesh.position.z=Math.max(1.15,state.patrickGap);
+      animatePatrick();
+    }
+    function pushPatrickBack(amount){ if(!state) return; state.patrickGap=Math.min(6.4,state.patrickGap+amount); }
+    function updateRunPhysics(p,speedMul){
+      if(!p) return; const spd=state.speed||BASE_SPEED;
+      const groundedRun=p.onGround&&!p.sliding&&!p.crouching&&state.running&&!state.paused;
+      if(groundedRun){ p.runPhase+=((state.skateActive?0.045:0.075)+spd*0.016)*speedMul; }
+      else if(!p.onGround){ p.runPhase+=0.03*speedMul; }
+      if(p.strideImpact>0) p.strideImpact*=0.78;
+      const targetX=(p.lane-1)*4.9;
+      const spring=p.onGround?0.24:0.13, damp=p.onGround?0.76:0.88;
+      p.laneVel=(p.laneVel||0)*damp+(targetX-(p.visualX||0))*spring;
+      p.visualX=(p.visualX||0)+p.laneVel;
+      p.leanZ+=((Math.max(-0.42,Math.min(0.42,-p.laneVel*0.55)))-p.leanZ)*0.22;
+      const fwd=state.skateActive?0.08:Math.min(0.2,Math.max(0,(spd-BASE_SPEED)*0.028));
+      p.leanX+=(fwd-p.leanX)*0.1;
+    }
+    const PLAYER_Y=1.18;
+    function animateSpongeBob(){
+      if(!playerMesh||!state||!head||!leftLeg||!rightLeg||!leftArm||!rightArm) return;
+      const p=state.player, squash=p.squash||0, low=p.sliding||p.crouching, spd=state.speed||BASE_SPEED;
+      const phase=p.runPhase||0, swing=Math.sin(phase), stride=Math.min(1.15,0.55+spd*0.07);
+      if(p.blink>0) p.blink--; else if(state.frame%150===40) p.blink=8;
+      if(leftEyelid&&rightEyelid){ const lid=p.blink>0?(p.blink>4?(8-p.blink):p.blink)/4:0.08; leftEyelid.scale.y=0.08+lid*0.95; rightEyelid.scale.y=0.08+lid*0.95; }
+      if(p.onGround&&!low&&state.running){
+        const skate=state.skateActive, legAmp=skate?0.18:stride, armAmp=skate?0.22:stride*0.85;
+        leftLeg.rotation.x=swing*legAmp; rightLeg.rotation.x=-swing*legAmp;
+        leftArm.rotation.x=-swing*armAmp; rightArm.rotation.x=swing*armAmp;
+        leftArm.rotation.z=0.55; rightArm.rotation.z=-0.55;
+        const bob=Math.abs(Math.sin(phase))*(0.05+spd*0.008);
+        playerMesh.scale.set(1.12*(1+squash*0.55),(1.12+bob*0.15)*(1-squash),1.12*(1+squash*0.4));
+        playerMesh.position.y=PLAYER_Y+bob-squash*0.4;
+        playerMesh.rotation.x=p.leanX||0; playerMesh.rotation.z=p.leanZ||0;
+      } else if(low){
+        leftLeg.rotation.x=1.15; rightLeg.rotation.x=1.15; leftArm.rotation.z=1.1; rightArm.rotation.z=-1.1;
+        playerMesh.scale.set(1.28,0.55,1.22); playerMesh.position.y=0.42; playerMesh.rotation.x=0.95;
+      } else if(!p.onGround){
+        leftLeg.rotation.x=p.fastFall?0.4:-0.55; rightLeg.rotation.x=p.fastFall?0.95:-0.15;
+        playerMesh.position.y=PLAYER_Y; playerMesh.rotation.x=(p.fastFall?0.28:-0.16)+(p.leanX||0);
+      }
+      if(skateBoard) skateBoard.visible=!!state.skateActive;
+      if(p.invincible&&!state.shieldActive&&!state.skateActive) playerMesh.visible=Math.floor(state.frame/3)%2===0;
+      else playerMesh.visible=true;
+    }
+    function createBackgroundBuilding(x,z,width,height,mat){
+      const group=new THREE.Group();
+      const building=new THREE.Mesh(SHARED.boxGeo,mat); building.scale.set(width,height,7); building.position.y=height/2; group.add(building);
+      group.position.set(x,0,z); return group;
+    }
+    function initBackground(){
+      backgroundBuildings=[];
+      const count=IS_MOBILE?8:12;
+      for(let i=0;i<count;i++){
+        const side=i%2===0?-1:1;
+        const b=createBackgroundBuilding(side*(18+Math.random()*14), -24-i*22, 6+Math.random()*7, 14+Math.random()*22, i%2?SHARED.bldMatA:SHARED.bldMatB);
+        scene.add(b); backgroundBuildings.push(b);
+      }
+    }
+    function updateBackground(){
+      if(!state) return;
+      const speed=state.speed*(state.slowMoActive?0.45:1);
+      backgroundBuildings.forEach(b=>{ b.position.z+=speed*0.32; if(b.position.z>28){ b.position.z=-150-Math.random()*30; b.position.x=(b.position.x>=0?1:-1)*(20+Math.random()*18);} });
+    }
+    function spawnSpeedLines(){
+      if(!state||state.speed<8||speedLines.length>=MAX_SPEED_LINES) return;
+      const line=takePooled(pool.lines,SHARED.speedLineGeo,SHARED.speedLineMat);
+      if(line.material===SHARED.speedLineMat) line.material=SHARED.speedLineMat.clone();
+      line.material.opacity=0.32; line.position.set((Math.random()-0.5)*14,1.5+Math.random()*4,-18); scene.add(line);
+      speedLines.push({mesh:line,life:6+Math.random()*4});
+    }
+    function updateSpeedLines(){
+      speedLines=speedLines.filter(line=>{ line.mesh.position.z+=state.speed*0.45; line.life--; line.mesh.material.opacity*=0.82;
+        if(line.life<=0){ recycle(line.mesh,pool.lines); return false; } return true; });
+    }
+    function updatePlayerTrail(){
+      if(!playerMesh||!state) return;
+      const speedFactor=Math.min((state.speed-5.4)/5,1.1); if(speedFactor<0.25) return;
+      if(state.frame%3===0&&playerTrail.length<MAX_TRAIL){
+        const trailMesh=takePooled(pool.trails,SHARED.trailGeo,SHARED.trailMat);
+        if(trailMesh.material===SHARED.trailMat) trailMesh.material=SHARED.trailMat.clone();
+        trailMesh.material.opacity=0.2; trailMesh.position.copy(playerMesh.position); scene.add(trailMesh);
+        playerTrail.push({mesh:trailMesh,life:6});
+      }
+      playerTrail=playerTrail.filter(trail=>{ trail.life--; trail.mesh.material.opacity*=0.78; trail.mesh.position.z+=0.15;
+        if(trail.life<=0){ recycle(trail.mesh,pool.trails); return false; } return true; });
+    }
+    function scaledBox(sx,sy,sz,mat){ const mesh=new THREE.Mesh(SHARED.boxGeo,mat); mesh.scale.set(sx,sy,sz); return mesh; }
+    function createObstacleMesh(type){
+      let mesh;
+      if(type==='train'){ mesh=scaledBox(3.3,2.7,8.5,SHARED.obTrain); mesh.userDataY=1.35; }
+      else if(type==='barrier'){ mesh=scaledBox(2.9,1.85,0.65,SHARED.obBarrier); mesh.userDataY=0.92; }
+      else if(type==='low_barrier'){ mesh=scaledBox(3.5,0.6,0.55,SHARED.obLow); mesh.position.y=1.75; mesh.userDataY=1.75; }
+      else if(type==='drone'){ mesh=new THREE.Group(); mesh.add(scaledBox(2.2,0.6,1.8,SHARED.obDrone)); mesh.userDataY=2.4; }
+      else if(type==='laser'){ mesh=scaledBox(3.6,3.2,0.35,SHARED.obLaser); mesh.userDataY=1.6; }
+      else if(type==='moving_barrier'){ mesh=scaledBox(2.8,1.9,0.7,SHARED.obMove); mesh.userDataY=0.95; }
+      else if(type==='electric_fence'){ mesh=scaledBox(3.4,4.5,0.25,SHARED.obFence); mesh.userDataY=2.25; }
+      else if(type==='spinning_blade'){ mesh=new THREE.Group(); mesh.add(scaledBox(4.2,0.25,0.8,SHARED.obBlade)); mesh.userDataY=1.8; }
+      else if(type==='holo_wall'){ mesh=scaledBox(3.2,4.9,0.4,SHARED.obHolo); mesh.userDataY=2.8; }
+      return mesh;
+    }
+    function createCoinMesh(){ return new THREE.Mesh(SHARED.coinGeo,SHARED.coinMat); }
+    function createPowerupMesh(type){
+      if(type==='magnet') return new THREE.Mesh(SHARED.torusGeo,SHARED.puMagnet);
+      if(type==='shield') return new THREE.Mesh(SHARED.octaGeo,SHARED.puShield);
+      if(type==='speed') return new THREE.Mesh(SHARED.coneGeo,SHARED.puSpeed);
+      if(type==='double') return scaledBox(0.9,0.9,0.9,SHARED.puDouble);
+      if(type==='slow') return new THREE.Mesh(SHARED.tetraGeo,SHARED.puSlow);
+      if(type==='superjump') return new THREE.Mesh(SHARED.coneGeo,SHARED.puJump);
+      if(type==='coinrain') return new THREE.Mesh(SHARED.sphereGeo,SHARED.puRain);
+      if(type==='ghost') return new THREE.Mesh(SHARED.icoGeo,SHARED.puGhost);
+      if(type==='skate') return scaledBox(0.75,0.35,0.9,SHARED.puSkate);
       return null;
     }
-
-    function clear3DScene() {
-      if (!state) return;
-      [...state.obstacles, ...state.coins_obj, ...state.particles, ...state.powerups, ...playerTrail, ...speedLines].forEach(obj => {
-        if (obj.mesh) scene.remove(obj.mesh);
-      });
-      playerTrail = [];
-      speedLines = [];
-      if (playerMesh) {
-        playerMesh.visible = true;
-        playerMesh.scale.set(1.15, 1.15, 1.15);
-        playerMesh.position.set(0, 0.35, 0);
-        playerMesh.rotation.set(0, 0, 0);
-        playerMesh.traverse(child => {
-          if (child.material && child.userData.originalColor) {
-            child.material.color.setHex(child.userData.originalColor);
-          }
-        });
-      }
-      if (patrickMesh) {
-        patrickMesh.position.set(0, 0.25, 5.2);
-        patrickMesh.visible = true;
-      }
-      const warn = document.getElementById('patrick-warning');
-      if (warn) warn.style.opacity = '0';
+    function clear3DScene(){
+      if(!state) return;
+      state.obstacles.forEach(o=>{ if(o.mesh) scene.remove(o.mesh); });
+      state.coins_obj.forEach(o=>{ if(o.mesh) scene.remove(o.mesh); });
+      state.powerups.forEach(o=>{ if(o.mesh) scene.remove(o.mesh); });
+      state.particles.forEach(o=>recycle(o.mesh,pool.particles));
+      playerTrail.forEach(o=>recycle(o.mesh,pool.trails));
+      speedLines.forEach(o=>recycle(o.mesh,pool.lines));
+      playerTrail=[]; speedLines=[];
+      if(playerMesh){ playerMesh.visible=true; playerMesh.position.set(0,1.18,0); playerMesh.rotation.set(0,0,0); if(skateBoard) skateBoard.visible=false; }
+      if(patrickMesh){ patrickMesh.position.set(0,0.85,5.2); patrickMesh.rotation.set(0,0,0); }
     }
-
-    let W, H, LANE_CENTERS;
-    function resize() {
-      const container = screens.game;
-      W = canvas.width = container.clientWidth || 1100;
-      H = canvas.height = container.clientHeight || 620;
-      const horizonY = H * 0.61;
-      LANE_CENTERS = [horizonY, horizonY + 75, horizonY + 150];
-      if (state) {
-        const p = state.player;
-        p.x = W * 0.23;
-        p.baseY = LANE_CENTERS[p.lane];
-        if (p.onGround) p.y = p.baseY;
-      }
-      if (camera && renderer) {
-        camera.aspect = W / H;
-        camera.updateProjectionMatrix();
-        renderer.setSize(W, H);
-      }
+    let W,H,LANE_CENTERS;
+    function resize(){
+      const container=screens.game;
+      W=canvas.width=container.clientWidth||1100; H=canvas.height=container.clientHeight||620;
+      const horizonY=H*0.61; LANE_CENTERS=[horizonY,horizonY+75,horizonY+150];
+      if(state){ const p=state.player; p.x=W*0.23; p.baseY=LANE_CENTERS[p.lane]; if(p.onGround) p.y=p.baseY; }
+      if(camera&&renderer){ camera.aspect=W/H; camera.updateProjectionMatrix(); renderer.setSize(W,H); }
     }
-    window.addEventListener('resize', resize);
-
-    let touchStartX = 0, touchStartY = 0;
-    document.addEventListener('keydown', e => {
-      if (!state?.running || state.paused) return;
-      if (['ArrowUp','w','W'].includes(e.key)) changeLane(-1);
-      if (['ArrowDown','s','S'].includes(e.key)) changeLane(1);
-      if (e.key === ' ' || e.key === 'Spacebar') jump();
-      if (['ArrowLeft','a','A','ArrowRight','d','D'].includes(e.key)) slide();
-      if (e.key.toLowerCase() === 'q') activateSkate();
+    window.addEventListener('resize',resize);
+    let touchStartX=0,touchStartY=0;
+    function isJumpKey(key){ return key===' '||key==='Spacebar'||key==='ArrowUp'||key==='w'||key==='W'; }
+    function isCrouchKey(key){ return key==='ArrowDown'||key==='s'||key==='S'; }
+    document.addEventListener('keydown',e=>{
+      if(isJumpKey(e.key)||isCrouchKey(e.key)) e.preventDefault();
+      if(!state?.running||state.paused) return;
+      if(['ArrowLeft','a','A'].includes(e.key)) changeLane(-1);
+      if(['ArrowRight','d','D'].includes(e.key)) changeLane(1);
+      if(isJumpKey(e.key)){ if(state.player) state.player.holdingJump=true; jump(); }
+      if(isCrouchKey(e.key)&&!e.repeat) startCrouch(true);
+      if(e.key.toLowerCase()==='q') activateSkate();
     });
-    canvas.addEventListener('touchstart', e => {
-      if (!state?.running || state.paused) return;
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
+    document.addEventListener('keyup',e=>{
+      if(isJumpKey(e.key)&&state?.player) state.player.holdingJump=false;
+      if(isCrouchKey(e.key)) releaseCrouch();
+    });
+    canvas.addEventListener('touchstart',e=>{
+      if(!state?.running||state.paused) return;
+      touchStartX=e.touches[0].clientX; touchStartY=e.touches[0].clientY; e.preventDefault();
+    },{passive:false});
+    canvas.addEventListener('touchend',e=>{
+      if(!state?.running||state.paused||!e.changedTouches?.length) return;
+      const dx=e.changedTouches[0].clientX-touchStartX, dy=e.changedTouches[0].clientY-touchStartY;
+      const ax=Math.abs(dx), ay=Math.abs(dy);
+      if(ax<28&&ay<28) jump(); else if(ax>ay) changeLane(dx<0?-1:1); else if(dy<0) jump(); else startCrouch(false);
       e.preventDefault();
-    }, {passive:false});
-    canvas.addEventListener('touchend', e => {
-      if (!state?.running || state.paused) return;
-      if (!e.changedTouches || e.changedTouches.length === 0) return;
-      const dx = e.changedTouches[0].clientX - touchStartX;
-      const dy = e.changedTouches[0].clientY - touchStartY;
-      if (Math.abs(dx) > Math.abs(dy)) slide();
-      else {
-        if (dy < -55) jump();
-        else if (dy > 55) changeLane(1);
+    },{passive:false});
+    function changeLane(dir){
+      if(!state||!state.running||state.paused) return;
+      const p=state.player, nl=p.lane+dir; if(nl<0||nl>=LANES) return;
+      p.lane=nl; p.baseY=LANE_CENTERS[nl]; if(p.onGround) p.y=p.baseY;
+    }
+    function tryJump(){
+      if(!state) return; const p=state.player;
+      if(!(p.onGround||p.coyote>0)){ p.jumpBuffer=JUMP_BUFFER_FRAMES; return; }
+      p.vy=(p.jumpForce||JUMP_FORCE)*((p.sliding||p.crouching)?0.86:1);
+      p.onGround=false; p.jumping=true; p.fastFall=false; p.sliding=false; p.crouching=false; p.slideHold=false; p.slideTimer=0; p.coyote=0; p.jumpBuffer=0; p.squash=-0.16;
+      playSound('jump');
+    }
+    function jump(){ tryJump(); }
+    function startCrouch(held){
+      if(!state) return; const p=state.player; p.slideHold=!!held;
+      if(!p.onGround){ p.fastFall=true; p.crouching=true; if(p.vy<4) p.vy=4; playSound('slide'); return; }
+      if(p.sliding){ p.slideTimer=Math.max(p.slideTimer,SLIDE_MIN_FRAMES); return; }
+      p.sliding=true; p.crouching=true; p.slideTimer=held?SLIDE_MAX_FRAMES:34; state.slideBoost=Math.max(state.slideBoost,SLIDE_BOOST); p.squash=0.22; playSound('slide');
+    }
+    function releaseCrouch(){
+      if(!state) return; const p=state.player; p.slideHold=false;
+      if(!p.onGround){ p.crouching=false; return; }
+      if(p.slideTimer<=SLIDE_MIN_FRAMES){ p.sliding=false; p.crouching=false; }
+    }
+    function activateSkate(){
+      if(!state||!state.running||state.paused||state.skateCooldown>0||state.skateActive) return;
+      state.skateActive=true; state.skateTimer=300; state.skateCooldown=600; pu.skate.classList.add('active');
+      playSound('powerup'); spawnParticles(state.player.lane,state.player.x,0x00ff99,20); pushPatrickBack(1.1);
+    }
+    const OBSTACLE_TYPES=['train','barrier','low_barrier','drone','laser','moving_barrier','electric_fence','spinning_blade','holo_wall'];
+    function spawnObstacle(){
+      let type=OBSTACLE_TYPES[Math.floor(Math.random()*OBSTACLE_TYPES.length)];
+      if((state?.distance||0)<7500 && ['holo_wall','electric_fence','train','laser'].includes(type))
+        type=['barrier','low_barrier','drone','moving_barrier','spinning_blade'][Math.floor(Math.random()*5)];
+      if(type==='holo_wall'&&(state?.distance||0)<9000) type='barrier';
+      const lane=Math.floor(Math.random()*LANES);
+      let w=58,h=58,canSlide=false;
+      if(type==='train'){w=98;h=72;} if(type==='low_barrier'){w=56;h=36;canSlide=true;} if(type==='laser'){w=62;h=82;} if(type==='holo_wall'){w=48;h=98;}
+      const ob={lane,x:W+130,y:LANE_CENTERS[lane],w,h,type,canSlide,mesh:createObstacleMesh(type)};
+      scene.add(ob.mesh); state.obstacles.push(ob);
+    }
+    function spawnCoin(count=null){
+      const lane=Math.floor(Math.random()*LANES), num=count||(4+Math.floor(Math.random()*5)), startX=W+55;
+      for(let i=0;i<num;i++){ const coin={lane,collected:false,x:startX+i*50,y:LANE_CENTERS[lane]-30,r:12,mesh:createCoinMesh()}; scene.add(coin.mesh); state.coins_obj.push(coin); }
+    }
+    function spawnPowerup(){
+      const types=['magnet','shield','speed','double','slow','superjump','coinrain','ghost','skate'];
+      const type=types[Math.floor(Math.random()*types.length)];
+      const lane=Math.floor(Math.random()*LANES);
+      const puItem={lane,x:W+90,y:LANE_CENTERS[lane]-45,r:15,type,collected:false,mesh:createPowerupMesh(type)};
+      if(puItem.mesh){ scene.add(puItem.mesh); state.powerups.push(puItem); }
+    }
+    function spawnParticles(lane,xPos,colorHex,count=16){
+      if(!state) return; const room=MAX_PARTICLES-state.particles.length; if(room<=0) return;
+      const n=Math.min(count,room,IS_MOBILE?5:8), mat=particleMatFor(colorHex);
+      for(let i=0;i<n;i++){
+        const pMesh=takePooled(pool.particles,SHARED.particleGeo,mat); pMesh.material=mat;
+        pMesh.position.set((lane-1)*4.9+(Math.random()-0.5)*0.8,1.3+(Math.random()-0.5)*1.5,-(xPos-state.player.x)*0.33);
+        scene.add(pMesh); state.particles.push({mesh:pMesh,vx:(Math.random()-0.5)*0.2,vy:Math.random()*0.28,vz:(Math.random()-0.5)*0.2,life:12});
       }
-      e.preventDefault();
-    }, {passive:false});
-
-    function changeLane(dir) {
-      const p = state.player;
-      const nl = p.lane + dir;
-      if (nl < 0 || nl >= LANES) return;
-      p.lane = nl;
-      p.baseY = LANE_CENTERS[nl];
-      if (p.onGround) p.y = p.baseY;
     }
-    function jump() {
-      const p = state.player;
-      if (p.onGround && !p.sliding) {
-        p.vy = p.jumpForce || JUMP_FORCE;
-        p.onGround = false;
-        p.jumping = true;
-        playSound('jump');
+    function checkCollision(p,ob){
+      if(state.ghostActive||p.lane!==ob.lane) return false;
+      const ph=(p.sliding||p.crouching)?p.h*0.4:p.h, py=p.y-ph, px=p.x-p.w/2, ox=ob.x-ob.w/2, oy=ob.y-ob.h;
+      return px<ox+ob.w && px+p.w>ox && py<oy+ob.h && py+ph>oy;
+    }
+    function checkCoin(p,c){ if(p.lane!==c.lane) return false; const dx=p.x-c.x, dy=(p.y-p.h/2)-c.y; return Math.sqrt(dx*dx+dy*dy)<p.w/2+c.r+(state.magnetActive?50:0); }
+    function checkPowerup(p,item){ if(p.lane!==item.lane) return false; const dx=p.x-item.x, dy=(p.y-p.h/2)-item.y; return Math.sqrt(dx*dx+dy*dy)<p.w/2+item.r+10; }
+    function showComboText(amount){
+      comboText.textContent='COMBO x'+amount+'!'; comboText.style.opacity='1';
+      setTimeout(()=>{ comboText.style.opacity='0'; },650);
+    }
+    function update(){
+      if(!state.running||state.paused) return;
+      const p=state.player; state.frame++;
+      const speedMultiplier=state.slowMoActive?0.42:1;
+      state.distance+=state.speed*speedMultiplier; state.score=Math.floor(state.distance/11);
+      let currentSpeed=BASE_SPEED+Math.floor(state.distance/2800)*0.48;
+      if(state.speedBoostActive) currentSpeed*=1.6; if(state.skateActive) currentSpeed*=1.35;
+      state.slideBoost+=(1-state.slideBoost)*0.07; if(state.slideBoost<1.01) state.slideBoost=1;
+      state.speed=currentSpeed*state.slideBoost;
+      updateRunPhysics(p,speedMultiplier);
+      if(state.frame%(IS_MOBILE?8:6)===0) spawnSpeedLines();
+      if(++state.multTimer>240){ state.multTimer=0; state.multiplier=Math.min(state.multiplier+1,8); }
+      if(p.invTimer>0&&--p.invTimer<=0) p.invincible=false;
+      if(p.jumpBuffer>0) p.jumpBuffer--; if(p.coyote>0) p.coyote--;
+      if(p.squash) p.squash*=0.78; if(Math.abs(p.squash)<0.01) p.squash=0;
+      if(!p.onGround){
+        let g=GRAVITY_FALL; if(p.vy<0) g=p.holdingJump?GRAVITY_UP:GRAVITY_RELEASE; if(p.fastFall||p.crouching) g=GRAVITY_FAST_FALL;
+        p.vy+=g; if(p.vy>MAX_FALL_SPEED) p.vy=MAX_FALL_SPEED; p.y+=p.vy*speedMultiplier;
+        if(p.y>=p.baseY){ p.y=p.baseY; p.vy=0; p.onGround=true; p.jumping=false; p.coyote=COYOTE_FRAMES; p.squash=0.16; p.fastFall=false;
+          if(p.slideHold) startCrouch(true); else if(p.jumpBuffer>0) tryJump(); else p.crouching=false; }
+      } else { p.coyote=COYOTE_FRAMES; p.y=p.baseY; if(p.jumpBuffer>0&&!p.sliding) tryJump(); }
+      if(p.sliding){ p.slideTimer--; if(p.slideHold&&p.onGround) p.slideTimer=Math.max(p.slideTimer,8); if(p.slideTimer<=0){ p.sliding=false; if(!p.slideHold) p.crouching=false; } }
+      if(state.magnetActive&&--state.magnetTimer<=0){ state.magnetActive=false; pu.magnet.classList.remove('active'); }
+      if(state.shieldActive&&--state.shieldTimer<=0){ state.shieldActive=false; pu.shield.classList.remove('active'); }
+      if(state.speedBoostActive&&--state.speedBoostTimer<=0){ state.speedBoostActive=false; pu.speed.classList.remove('active'); }
+      if(state.doubleScoreActive&&--state.doubleScoreTimer<=0){ state.doubleScoreActive=false; pu.double.classList.remove('active'); }
+      if(state.slowMoActive&&--state.slowMoTimer<=0){ state.slowMoActive=false; pu.slow.classList.remove('active'); }
+      if(state.superJumpActive&&--state.superJumpTimer<=0){ state.superJumpActive=false; pu.superjump.classList.remove('active'); p.jumpForce=JUMP_FORCE; }
+      if(state.coinRainActive&&--state.coinRainTimer<=0){ state.coinRainActive=false; pu.coinrain.classList.remove('active'); }
+      if(state.ghostActive&&--state.ghostTimer<=0){ state.ghostActive=false; pu.ghost.classList.remove('active'); }
+      if(state.skateActive&&--state.skateTimer<=0){ state.skateActive=false; pu.skate.classList.remove('active'); }
+      if(state.skateCooldown>0) state.skateCooldown--;
+      if(++state.spawnTimer>Math.max(48,115-Math.floor(state.distance/2200)*4)){
+        state.spawnTimer=0; const r=Math.random(); if(r<0.52) spawnObstacle(); else if(r<0.78) spawnCoin(); else spawnPowerup();
       }
-    }
-    function slide() {
-      const p = state.player;
-      if (!p.onGround || p.sliding) return;
-      p.sliding = true;
-      p.slideTimer = SLIDE_FRAMES;
-      playSound('slide');
-    }
-    function activateSkate() {
-      if (!state || state.skateCooldown > 0 || state.skateActive) return;
-      state.skateActive = true;
-      state.skateTimer = 300;
-      state.skateCooldown = 600;
-      pu.skate.classList.add('active');
-      playSound('powerup');
-      spawnParticles(state.player.lane, state.player.x, 0x00ff99, 30);
-      pushPatrickBack(1.1);
-    }
-
-    const OBSTACLE_TYPES = ['train', 'barrier', 'low_barrier', 'drone', 'laser', 'moving_barrier', 'electric_fence', 'spinning_blade', 'holo_wall'];
-    function spawnObstacle() {
-      let type = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
-      const isEarlyGame = (state?.distance || 0) < 7500;
-      if (isEarlyGame) {
-        const hardObstacles = ['holo_wall', 'electric_fence', 'train', 'laser'];
-        if (hardObstacles.includes(type)) {
-          const easyTypes = ['barrier', 'low_barrier', 'drone', 'moving_barrier', 'spinning_blade'];
-          type = easyTypes[Math.floor(Math.random() * easyTypes.length)];
+      state.obstacles=state.obstacles.filter(ob=>{
+        ob.x-=state.speed*speedMultiplier;
+        if(ob.type==='spinning_blade'&&ob.mesh) ob.mesh.rotation.y+=0.12;
+        if(!p.invincible&&!state.shieldActive&&!state.skateActive&&checkCollision(p,ob)){
+          if(ob.canSlide&&(p.sliding||p.crouching)) return true;
+          playSound('hit'); gameOver(); if(ob.mesh) scene.remove(ob.mesh); return false;
         }
-      }
-      if (type === 'holo_wall' && (state?.distance || 0) < 9000) type = 'barrier';
-      const lane = Math.floor(Math.random() * LANES);
-      let w = 58, h = 58, canSlide = false;
-      if (type === 'train') { w = 98; h = 72; }
-      if (type === 'barrier') { w = 52; h = 56; }
-      if (type === 'low_barrier') { w = 56; h = 36; canSlide = true; }
-      if (type === 'drone') { w = 52; h = 48; }
-      if (type === 'laser') { w = 62; h = 82; }
-      if (type === 'moving_barrier') { w = 52; h = 58; }
-      if (type === 'electric_fence') { w = 58; h = 95; }
-      if (type === 'spinning_blade') { w = 65; h = 55; }
-      if (type === 'holo_wall') { w = 48; h = 98; canSlide = false; }
-      const ob = { lane, x: W + 130, y: LANE_CENTERS[lane], w, h, type, canSlide };
-      ob.mesh = createObstacleMesh(type);
-      scene.add(ob.mesh);
-      state.obstacles.push(ob);
-    }
-
-    function spawnCoin(count = null) {
-      const lane = Math.floor(Math.random() * LANES);
-      const num = count || (4 + Math.floor(Math.random() * 5));
-      const startX = W + 55;
-      for (let i = 0; i < num; i++) {
-        const coin = { lane, collected: false, x: startX + i * 50, y: LANE_CENTERS[lane] - 30 - Math.sin(i * 0.85) * 24, r: 12 };
-        coin.mesh = createCoinMesh();
-        scene.add(coin.mesh);
-        state.coins_obj.push(coin);
-      }
-    }
-
-    function spawnPowerup() {
-      const lane = Math.floor(Math.random() * LANES);
-      const types = ['magnet', 'shield', 'speed', 'double', 'slow', 'superjump', 'coinrain', 'ghost', 'skate'];
-      const type = types[Math.floor(Math.random() * types.length)];
-      const puItem = { lane, x: W + 90, y: LANE_CENTERS[lane] - 45, r: 15, type, collected: false };
-      puItem.mesh = createPowerupMesh(type);
-      if (puItem.mesh) {
-        scene.add(puItem.mesh);
-        state.powerups.push(puItem);
-      }
-    }
-
-    function spawnParticles(lane, xPos, colorHex, count = 16) {
-      const room = MAX_PARTICLES - state.particles.length;
-      if (room <= 0) return;
-      const n = Math.min(count, room, IS_MOBILE ? 8 : 16);
-      const mat = new THREE.MeshBasicMaterial({ color: colorHex });
-      for (let i = 0; i < n; i++) {
-        const pMesh = new THREE.Mesh(SHARED.particleGeo, mat);
-        pMesh.position.set((lane - 1) * 4.9 + (Math.random() - 0.5) * 0.8, 1.3 + (Math.random() - 0.5) * 1.5, -(xPos - state.player.x) * 0.33);
-        scene.add(pMesh);
-        state.particles.push({ mesh: pMesh, vx: (Math.random() - 0.5) * 0.2, vy: Math.random() * 0.28, vz: (Math.random() - 0.5) * 0.2, life: 16 + Math.floor(Math.random() * 10) });
-      }
-    }
-
-    function checkCollision(p, ob) {
-      if (state.ghostActive) return false;
-      if (p.lane !== ob.lane) return false;
-      const ph = p.sliding ? p.h * 0.4 : p.h;
-      const py = p.y - ph;
-      const px = p.x - p.w / 2;
-      const ox = ob.x - ob.w / 2;
-      const oy = ob.y - ob.h;
-      return (px < ox + ob.w && px + p.w > ox && py < oy + ob.h && py + ph > oy);
-    }
-    function checkCoin(p, c) {
-      if (p.lane !== c.lane) return false;
-      const dx = p.x - c.x;
-      const dy = (p.y - p.h / 2) - c.y;
-      return Math.sqrt(dx * dx + dy * dy) < p.w / 2 + c.r + (state.magnetActive ? 50 : 0);
-    }
-    function checkPowerup(p, puItem) {
-      if (p.lane !== puItem.lane) return false;
-      const dx = p.x - puItem.x;
-      const dy = (p.y - p.h / 2) - puItem.y;
-      return Math.sqrt(dx * dx + dy * dy) < p.w / 2 + puItem.r + 10;
-    }
-
-    function showComboText(amount) {
-      comboText.textContent = `COMBO x${amount}!`;
-      comboText.style.opacity = '1';
-      comboText.style.transform = 'translate(-50%, -50%) scale(1.1)';
-      comboText.style.transition = 'opacity 0.2s ease';
-      setTimeout(() => {
-        comboText.style.transition = 'all 0.6s ease';
-        comboText.style.opacity = '0';
-        comboText.style.transform = 'translate(-50%, -50%) scale(0.6)';
-      }, 650);
-    }
-
-    function update() {
-      if (!state.running || state.paused) return;
-      const p = state.player;
-      state.frame++;
-      const speedMultiplier = state.slowMoActive ? 0.42 : 1.0;
-      state.distance += state.speed * speedMultiplier;
-      state.score = Math.floor(state.distance / 11);
-      let currentSpeed = BASE_SPEED + Math.floor(state.distance / 2800) * 0.48;
-      if (state.speedBoostActive) currentSpeed *= 1.6;
-      if (state.skateActive) currentSpeed *= 1.35;
-      state.speed = currentSpeed;
-      if (state.frame % (IS_MOBILE ? 8 : 6) === 0) spawnSpeedLines();
-      state.multTimer++;
-      if (state.multTimer > 240) {
-        state.multTimer = 0;
-        state.multiplier = Math.min(state.multiplier + 1, 8);
-      }
-      if (!p.onGround) {
-        p.vy += GRAVITY;
-        p.y += p.vy * speedMultiplier;
-        if (p.y >= p.baseY) {
-          p.y = p.baseY;
-          p.vy = 0;
-          p.onGround = true;
-          p.jumping = false;
+        if(ob.x+ob.w>-70) return true; if(ob.mesh) scene.remove(ob.mesh); return false;
+      });
+      if(state.cameraShake>0){ state.cameraShake--; const a=state.cameraShake/26; camera.position.x=Math.sin(state.frame*0.1)*a*0.15; camera.position.y=5.4+Math.cos(state.frame*0.15)*a*0.12; }
+      else { camera.position.x=0; camera.position.y=5.4; }
+      state.coins_obj=state.coins_obj.filter(c=>{
+        c.x-=state.speed*speedMultiplier; if(state.magnetActive) c.x+=(p.x-c.x)*0.13;
+        if(!c.collected&&checkCoin(p,c)){ c.collected=true; state.combo++; let gained=state.doubleScoreActive?2:1; state.coins+=gained*state.multiplier;
+          if(state.combo%5===0) showComboText(state.combo); playSound('coin'); pushPatrickBack(0.12); if(c.mesh) scene.remove(c.mesh); return false; }
+        if(c.x+c.r>-30) return true; if(c.mesh) scene.remove(c.mesh); return false;
+      });
+      state.powerups=state.powerups.filter(item=>{
+        item.x-=state.speed*0.92*speedMultiplier;
+        if(!item.collected&&checkPowerup(p,item)){
+          item.collected=true; const t=item.type;
+          if(t==='magnet'){state.magnetActive=true;state.magnetTimer=520;pu.magnet.classList.add('active');}
+          if(t==='shield'){state.shieldActive=true;state.shieldTimer=380;pu.shield.classList.add('active');}
+          if(t==='speed'){state.speedBoostActive=true;state.speedBoostTimer=260;pu.speed.classList.add('active');}
+          if(t==='double'){state.doubleScoreActive=true;state.doubleScoreTimer=420;pu.double.classList.add('active');}
+          if(t==='slow'){state.slowMoActive=true;state.slowMoTimer=320;pu.slow.classList.add('active');}
+          if(t==='superjump'){state.superJumpActive=true;state.superJumpTimer=380;p.jumpForce=SUPER_JUMP_FORCE;pu.superjump.classList.add('active');}
+          if(t==='coinrain'){state.coinRainActive=true;state.coinRainTimer=1;pu.coinrain.classList.add('active');spawnCoin(18);}
+          if(t==='ghost'){state.ghostActive=true;state.ghostTimer=360;pu.ghost.classList.add('active');}
+          if(t==='skate'){state.skateActive=true;state.skateTimer=300;state.skateCooldown=600;pu.skate.classList.add('active');}
+          playSound('powerup'); pushPatrickBack(0.85); if(item.mesh) scene.remove(item.mesh); return false;
         }
-      }
-      if (p.sliding) {
-        p.slideTimer--;
-        if (p.slideTimer <= 0) p.sliding = false;
-      }
-      if (state.magnetActive && --state.magnetTimer <= 0) { state.magnetActive = false; pu.magnet.classList.remove('active'); }
-      if (state.shieldActive && --state.shieldTimer <= 0) { state.shieldActive = false; pu.shield.classList.remove('active'); }
-      if (state.speedBoostActive && --state.speedBoostTimer <= 0) { state.speedBoostActive = false; pu.speed.classList.remove('active'); }
-      if (state.doubleScoreActive && --state.doubleScoreTimer <= 0) { state.doubleScoreActive = false; pu.double.classList.remove('active'); }
-      if (state.slowMoActive && --state.slowMoTimer <= 0) { state.slowMoActive = false; pu.slow.classList.remove('active'); }
-      if (state.superJumpActive && --state.superJumpTimer <= 0) { state.superJumpActive = false; pu.superjump.classList.remove('active'); p.jumpForce = JUMP_FORCE; }
-      if (state.coinRainActive && --state.coinRainTimer <= 0) { state.coinRainActive = false; pu.coinrain.classList.remove('active'); }
-      if (state.ghostActive && --state.ghostTimer <= 0) { state.ghostActive = false; pu.ghost.classList.remove('active'); }
-      if (state.skateActive && --state.skateTimer <= 0) { state.skateActive = false; pu.skate.classList.remove('active'); }
-      if (state.skateCooldown > 0) state.skateCooldown--;
-      state.spawnTimer++;
-      const interval = Math.max(48, 115 - Math.floor(state.distance / 2200) * 4);
-      if (state.spawnTimer > interval) {
-        state.spawnTimer = 0;
-        const r = Math.random();
-        if (r < 0.52) spawnObstacle();
-        else if (r < 0.78) spawnCoin();
-        else spawnPowerup();
-      }
-      state.obstacles = state.obstacles.filter(ob => {
-        ob.x -= state.speed * speedMultiplier;
-        if (ob.type === 'moving_barrier' && ob.mesh) {
-          const visualOffset = Math.sin(state.frame * 0.03) * 1.8;
-          ob.x += visualOffset - (ob.lastVisualOffset || 0);
-          ob.lastVisualOffset = visualOffset;
-          ob.mesh.position.x = (ob.lane - 1) * 4.9 + visualOffset;
-        }
-        if (ob.type === 'spinning_blade' && ob.mesh) ob.mesh.rotation.y += 0.12;
-        if (!p.invincible && !state.shieldActive && !state.skateActive && checkCollision(p, ob)) {
-          if (ob.canSlide && p.sliding) return true;
-          state.cameraShake = 26;
-          p.invincible = true;
-          p.invTimer = 50;
-          state.speed *= 0.4;
-          spawnParticles(p.lane, p.x, 0xff3366, 40);
-          playSound('hit');
-          gameOver();
-          if (ob.mesh) scene.remove(ob.mesh);
-          return false;
-        }
-        if (ob.x + ob.w > -70) return true;
-        if (ob.mesh) scene.remove(ob.mesh);
-        return false;
+        if(item.x+35>-35) return true; if(item.mesh) scene.remove(item.mesh); return false;
       });
-      if (state.cameraShake > 0) {
-        state.cameraShake--;
-        const shakeAmount = state.cameraShake / 26;
-        camera.position.x = Math.sin(state.frame * 0.1) * shakeAmount * 0.15;
-        camera.position.y = 5.4 + Math.cos(state.frame * 0.15) * shakeAmount * 0.12;
-      } else {
-        camera.position.x = 0;
-        camera.position.y = 5.4;
-      }
-      state.coins_obj = state.coins_obj.filter(c => {
-        c.x -= state.speed * speedMultiplier;
-        if (state.magnetActive) c.x += (p.x - c.x) * 0.13;
-        if (!c.collected && checkCoin(p, c)) {
-          c.collected = true;
-          state.combo++;
-          state.maxCombo = Math.max(state.maxCombo, state.combo);
-          state.lastComboTime = state.frame;
-          let gained = state.doubleScoreActive ? 2 : 1;
-          if (state.combo >= 8) gained += 1;
-          if (state.combo >= 15) gained += 1;
-          state.coins += gained * state.multiplier;
-          if (state.combo % 5 === 0 && state.combo > 0) {
-            showComboText(state.combo);
-            state.multiplier = Math.min(state.multiplier + 1, 9);
-          }
-          spawnParticles(c.lane, c.x, 0xffd700, 18);
-          playSound('coin');
-          pushPatrickBack(0.12);
-          if (c.mesh) scene.remove(c.mesh);
-          return false;
-        }
-        if (c.x + c.r > -30) return true;
-        if (c.mesh) scene.remove(c.mesh);
-        if (!c.collected && state.frame - state.lastComboTime > 80) state.combo = 0;
-        return false;
-      });
-      state.powerups = state.powerups.filter(puItem => {
-        puItem.x -= state.speed * 0.92 * speedMultiplier;
-        if (!puItem.collected && checkPowerup(p, puItem)) {
-          puItem.collected = true;
-          const type = puItem.type;
-          if (type === 'magnet') { state.magnetActive = true; state.magnetTimer = 520; pu.magnet.classList.add('active'); }
-          if (type === 'shield') { state.shieldActive = true; state.shieldTimer = 380; pu.shield.classList.add('active'); }
-          if (type === 'speed') { state.speedBoostActive = true; state.speedBoostTimer = 260; pu.speed.classList.add('active'); }
-          if (type === 'double') { state.doubleScoreActive = true; state.doubleScoreTimer = 420; pu.double.classList.add('active'); }
-          if (type === 'slow') { state.slowMoActive = true; state.slowMoTimer = 320; pu.slow.classList.add('active'); }
-          if (type === 'superjump') { state.superJumpActive = true; state.superJumpTimer = 380; p.jumpForce = -24; pu.superjump.classList.add('active'); }
-          if (type === 'coinrain') { state.coinRainActive = true; state.coinRainTimer = 1; pu.coinrain.classList.add('active'); spawnCoin(18); }
-          if (type === 'ghost') { state.ghostActive = true; state.ghostTimer = 360; pu.ghost.classList.add('active'); }
-          if (type === 'skate') { state.skateActive = true; state.skateTimer = 300; state.skateCooldown = 600; pu.skate.classList.add('active'); }
-          spawnParticles(puItem.lane, puItem.x, 0x00ffcc, 26);
-          playSound('powerup');
-          pushPatrickBack(0.85);
-          if (puItem.mesh) scene.remove(puItem.mesh);
-          return false;
-        }
-        if (puItem.x + 35 > -35) return true;
-        if (puItem.mesh) scene.remove(puItem.mesh);
-        return false;
-      });
-      state.particles = state.particles.filter(pp => {
-        pp.mesh.position.x += pp.vx;
-        pp.mesh.position.y += pp.vy;
-        pp.mesh.position.z += pp.vz;
-        pp.vy -= 0.008;
-        pp.life--;
-        if (pp.life <= 0) { scene.remove(pp.mesh); return false; }
-        return true;
-      });
-      const displayScore = Math.floor(state.score * state.multiplier * (state.doubleScoreActive ? 1.85 : 1));
-      scoreDisplay.textContent = displayScore;
-      coinsDisplay.textContent = state.coins;
-      multDisplay.textContent = `x${state.multiplier}`;
+      state.particles=state.particles.filter(pp=>{ pp.mesh.position.x+=pp.vx; pp.mesh.position.y+=pp.vy; pp.mesh.position.z+=pp.vz; pp.vy-=0.008; pp.life--;
+        if(pp.life<=0){ recycle(pp.mesh,pool.particles); return false; } return true; });
+      scoreDisplay.textContent=Math.floor(state.score*state.multiplier*(state.doubleScoreActive?1.85:1));
+      coinsDisplay.textContent=state.coins; multDisplay.textContent='x'+state.multiplier;
     }
-
-    function draw() {
-      if (!state || !scene || !playerMesh) return;
-      const p = state.player;
-      const targetX = (p.lane - 1) * 4.9;
-      playerMesh.position.x += (targetX - playerMesh.position.x) * 0.24;
-      const jumpOffset = (p.baseY - p.y) * 0.078;
-      playerMesh.position.y = 0.35 + jumpOffset;
-      animateSpongeBob();
-      updatePatrick();
-      updatePlayerTrail();
-      updateBackground();
-      updateSpeedLines();
-      state.obstacles.forEach(ob => {
-        if (!ob.mesh) return;
-        ob.mesh.position.x = (ob.lane - 1) * 4.9;
-        ob.mesh.position.z = -(ob.x - p.x) * 0.33;
-        if (ob.type !== 'low_barrier' && ob.type !== 'drone' && ob.type !== 'moving_barrier') {
-          ob.mesh.position.y = ob.userDataY || 0.9;
-        }
-      });
-      state.coins_obj.forEach(c => {
-        if (!c.mesh) return;
-        c.mesh.position.x = (c.lane - 1) * 4.9;
-        c.mesh.position.z = -(c.x - p.x) * 0.33;
-        c.mesh.position.y = (LANE_CENTERS[c.lane] - c.y) * 0.078 + 0.8;
-        c.mesh.rotation.z += 0.07;
-      });
-      state.powerups.forEach(puItem => {
-        if (!puItem.mesh) return;
-        puItem.mesh.position.x = (puItem.lane - 1) * 4.9;
-        puItem.mesh.position.z = -(puItem.x - p.x) * 0.33;
-        puItem.mesh.position.y = (LANE_CENTERS[puItem.lane] - puItem.y) * 0.078 + 1.15;
-        puItem.mesh.rotation.y += 0.045;
-      });
-      renderer.render(scene, camera);
+    function draw(){
+      if(!state||!scene||!playerMesh) return;
+      const p=state.player; playerMesh.position.x=p.visualX||0; animateSpongeBob();
+      playerMesh.position.y+=Math.max(0,(p.baseY-p.y)*0.078);
+      updatePatrick(); updatePlayerTrail(); updateBackground(); updateSpeedLines();
+      state.obstacles.forEach(ob=>{ if(!ob.mesh) return; ob.mesh.position.x=(ob.lane-1)*4.9; ob.mesh.position.z=-(ob.x-p.x)*0.33; if(ob.type!=='low_barrier'&&ob.type!=='drone') ob.mesh.position.y=ob.userDataY||0.9; });
+      state.coins_obj.forEach(c=>{ if(!c.mesh) return; c.mesh.position.x=(c.lane-1)*4.9; c.mesh.position.z=-(c.x-p.x)*0.33; c.mesh.position.y=0.8; c.mesh.rotation.z+=0.07; });
+      state.powerups.forEach(item=>{ if(!item.mesh) return; item.mesh.position.x=(item.lane-1)*4.9; item.mesh.position.z=-(item.x-p.x)*0.33; item.mesh.position.y=1.15; item.mesh.rotation.y+=0.045; });
+      renderer.render(scene,camera);
     }
-
-    function loop() {
-      update();
-      draw();
-      raf = requestAnimationFrame(loop);
-    }
-
+    function loop(){ update(); draw(); raf=requestAnimationFrame(loop); }
     let audioCtx;
-    function initAudio() {
-      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
-      catch(e){ console.warn("Audio context não disponível"); }
+    function initAudio(){ try{ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }catch(e){} }
+    function playSound(type){
+      if(!audioCtx) return;
+      try{
+        const osc=audioCtx.createOscillator(), gain=audioCtx.createGain(), filter=audioCtx.createBiquadFilter();
+        if(type==='coin'){ osc.type='sawtooth'; osc.frequency.value=920; gain.gain.value=0.16; }
+        else if(type==='jump'){ osc.type='square'; osc.frequency.value=480; gain.gain.value=0.2; }
+        else if(type==='hit'){ osc.type='sawtooth'; osc.frequency.value=160; gain.gain.value=0.32; }
+        else if(type==='powerup'){ osc.type='sine'; osc.frequency.value=680; gain.gain.value=0.22; }
+        else { osc.type='triangle'; osc.frequency.value=280; gain.gain.value=0.13; }
+        const now=audioCtx.currentTime; gain.gain.setValueAtTime(gain.gain.value,now); gain.gain.linearRampToValueAtTime(0.001,now+0.32);
+        osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination); osc.start(now); osc.stop(now+0.38);
+      }catch(e){}
     }
-    function playSound(type) {
-      if (!audioCtx) return;
-      try {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        const filter = audioCtx.createBiquadFilter();
-        if (type === 'coin') { osc.type = 'sawtooth'; osc.frequency.value = 920; gain.gain.value = 0.16; filter.type = 'lowpass'; filter.frequency.value = 2600; }
-        else if (type === 'jump') { osc.type = 'square'; osc.frequency.value = 480; gain.gain.value = 0.2; }
-        else if (type === 'hit') { osc.type = 'sawtooth'; osc.frequency.value = 160; gain.gain.value = 0.32; filter.type = 'lowpass'; filter.frequency.value = 700; }
-        else if (type === 'powerup') { osc.type = 'sine'; osc.frequency.value = 680; gain.gain.value = 0.22; }
-        else if (type === 'slide') { osc.type = 'triangle'; osc.frequency.value = 280; gain.gain.value = 0.13; }
-        const now = audioCtx.currentTime;
-        gain.gain.setValueAtTime(gain.gain.value, now);
-        gain.gain.linearRampToValueAtTime(0.001, now + (type === 'hit' ? 0.55 : 0.32));
-        osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(now); osc.stop(now + (type === 'hit' ? 0.6 : 0.38));
-      } catch(e) {
-        console.warn("Erro ao tocar som:", e);
-      }
+    function getLocalLeaderboard(){
+      const stored=localStorage.getItem('streetdash_final_leaderboard');
+      if(stored) return JSON.parse(stored);
+      const bots=[{name:"SpongeBob⚡",score:21500},{name:"PatrickRunner",score:16800},{name:"SquidwardX",score:12900},{name:"MrKrabsGold",score:9800},{name:"SandyCyber",score:7100}];
+      localStorage.setItem('streetdash_final_leaderboard',JSON.stringify(bots)); return bots;
     }
-
-    const firebaseConfig = {
-      apiKey: "SUA_API_KEY_AQUI",
-      authDomain: "SEU_PROJETO.firebaseapp.com",
-      projectId: "SEU_PROJECT_ID",
-      storageBucket: "SEU_PROJETO.appspot.com",
-      messagingSenderId: "SEU_SENDER_ID",
-      appId: "SEU_APP_ID"
-    };
-    let db = null;
-    let firebaseReady = false;
-    function initFirebase() {
-      try {
-        if (typeof firebase !== 'undefined' && !firebase.apps.length) {
-          firebase.initializeApp(firebaseConfig);
-          db = firebase.firestore();
-          firebaseReady = true;
-        }
-      } catch(e) {
-        firebaseReady = false;
-      }
+    function updateLeaderboard(name,score){
+      let lb=getLocalLeaderboard(); let entry=lb.find(e=>e.name===name);
+      if(entry){ if(score>entry.score) entry.score=score; } else lb.push({name,score});
+      lb.sort((a,b)=>b.score-a.score); localStorage.setItem('streetdash_final_leaderboard',JSON.stringify(lb.slice(0,10)));
     }
-    async function getLeaderboard() {
-      if (firebaseReady && db) {
-        try {
-          const snapshot = await db.collection("leaderboard").orderBy("score", "desc").limit(10).get();
-          const onlineLB = [];
-          snapshot.forEach(doc => onlineLB.push(doc.data()));
-          return onlineLB.length > 0 ? onlineLB : getLocalLeaderboard();
-        } catch(e) {
-          return getLocalLeaderboard();
-        }
-      }
-      return getLocalLeaderboard();
+    async function renderLeaderboardTable(){
+      const tbody=document.getElementById('leaderboard-rows'); const lb=getLocalLeaderboard(); const current=localStorage.getItem('streetdash_final_user');
+      tbody.innerHTML='';
+      lb.forEach((row,i)=>{ const tr=document.createElement('tr'); if(row.name===current) tr.classList.add('player-row');
+        tr.innerHTML=`<td>${i+1}º</td><td>${row.name}</td><td>${row.score}</td>`; tbody.appendChild(tr); });
     }
-    function getLocalLeaderboard() {
-      const stored = localStorage.getItem('streetdash_final_leaderboard');
-      if (stored) return JSON.parse(stored);
-      const BASE_BOTS = [
-        { name: "SpongeBob⚡", score: 21500 }, { name: "PatrickRunner", score: 16800 },
-        { name: "SquidwardX", score: 12900 }, { name: "MrKrabsGold", score: 9800 }, { name: "SandyCyber", score: 7100 }
-      ];
-      localStorage.setItem('streetdash_final_leaderboard', JSON.stringify(BASE_BOTS));
-      return BASE_BOTS;
-    }
-    async function updateLeaderboard(name, score) {
-      let lb = getLocalLeaderboard();
-      let entry = lb.find(e => e.name === name);
-      if (entry) { if (score > entry.score) entry.score = score; }
-      else lb.push({ name, score });
-      lb.sort((a,b) => b.score - a.score);
-      localStorage.setItem('streetdash_final_leaderboard', JSON.stringify(lb.slice(0,10)));
-      if (firebaseReady && db) {
-        try {
-          await db.collection("leaderboard").add({
-            name, score, timestamp: firebase.firestore.FieldValue.serverTimestamp()
-          });
-        } catch(e) {}
-      }
-    }
-    async function renderLeaderboardTable() {
-      const tbody = document.getElementById('leaderboard-rows');
-      tbody.innerHTML = '<tr><td colspan="3" class="leaderboard-loading">Carregando ranking...</td></tr>';
-      const lb = await getLeaderboard();
-      const current = localStorage.getItem('streetdash_final_user');
-      tbody.innerHTML = '';
-      lb.forEach((row, i) => {
-        const tr = document.createElement('tr');
-        if (row.name === current) tr.classList.add('player-row');
-        let pos = i+1;
-        if (i===0) pos = `<span class="pos-1">1º 🏆</span>`;
-        else if (i===1) pos = `<span class="pos-2">2º 🥈</span>`;
-        else if (i===2) pos = `<span class="pos-3">3º 🥉</span>`;
-        else pos = `${pos}º`;
-        tr.innerHTML = `<td>${pos}</td><td>${row.name}</td><td>${row.score}</td>`;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function gameOver() {
-      state.running = false;
-      gameLoopActive = false;
-      cancelAnimationFrame(raf);
-      const name = localStorage.getItem('streetdash_final_user') || 'SpongeBob';
-      const finalScore = Math.floor(state.score * state.multiplier * (state.doubleScoreActive ? 1.85 : 1));
-      const hs = parseInt(localStorage.getItem('streetdash_final_hs')) || 0;
-      if (finalScore > hs) localStorage.setItem('streetdash_final_hs', finalScore);
-      updateLeaderboard(name, finalScore);
-      document.getElementById('final-score').textContent = finalScore;
-      document.getElementById('final-coins').textContent = state.coins;
-      document.getElementById('final-hs').textContent = Math.max(finalScore, hs);
+    function gameOver(){
+      state.running=false; gameLoopActive=false; cancelAnimationFrame(raf);
+      const name=localStorage.getItem('streetdash_final_user')||'SpongeBob';
+      const finalScore=Math.floor(state.score*state.multiplier*(state.doubleScoreActive?1.85:1));
+      const hs=parseInt(localStorage.getItem('streetdash_final_hs'))||0;
+      if(finalScore>hs) localStorage.setItem('streetdash_final_hs',finalScore);
+      updateLeaderboard(name,finalScore);
+      document.getElementById('final-score').textContent=finalScore;
+      document.getElementById('final-coins').textContent=state.coins;
+      document.getElementById('final-hs').textContent=Math.max(finalScore,hs);
       showScreen('gameover');
     }
-
-    function startGame() {
-      cancelAnimationFrame(raf);
-      gameLoopActive = true;
-      clear3DScene();
-      state = initState();
-      state.running = true;
-      Object.values(pu).forEach(el => el && el.classList.remove('active'));
-      comboText.style.opacity = '0';
-      const pauseBtn = document.getElementById('pause-btn');
-      if (pauseBtn) pauseBtn.textContent = '⏸';
-      resize();
-      showScreen('game');
-      initAudio();
-      loop();
+    function startGame(){
+      cancelAnimationFrame(raf); gameLoopActive=true; clear3DScene(); state=initState(); state.running=true;
+      Object.values(pu).forEach(el=>el&&el.classList.remove('active')); comboText.style.opacity='0';
+      resize(); showScreen('game');
+      const pad=document.getElementById('mobile-controls'); if(pad) pad.classList.toggle('show',IS_MOBILE);
+      initAudio(); loop();
     }
-
-    document.getElementById('btn-start').addEventListener('click', startGame);
-    document.getElementById('btn-restart').addEventListener('click', startGame);
-    document.getElementById('btn-menu').addEventListener('click', () => { showScreen('start'); initMenu(); });
-    document.getElementById('btn-view-leaderboard').addEventListener('click', async () => {
-      await renderLeaderboardTable();
-      showScreen('leaderboard');
-    });
-    document.getElementById('btn-back-menu').addEventListener('click', () => showScreen('start'));
-    document.getElementById('pause-btn').addEventListener('click', () => {
-      if (!state) return;
-      state.paused = !state.paused;
-      document.getElementById('pause-btn').textContent = state.paused ? '▶' : '⏸';
-    });
-    document.getElementById('btn-save-account').addEventListener('click', () => {
-      const val = document.getElementById('username-input').value.trim();
-      if (val) { localStorage.setItem('streetdash_final_user', val); initMenu(); }
-    });
-
-    function initMenu() {
-      const user = localStorage.getItem('streetdash_final_user');
-      if (!user) showScreen('register');
-      else {
-        document.getElementById('player-greeting').textContent = user;
-        document.getElementById('hs-value').textContent = localStorage.getItem('streetdash_final_hs') || 0;
-        showScreen('start');
-      }
+    function bindHoldButton(id,onDown,onUp){
+      const el=document.getElementById(id); if(!el) return;
+      const down=ev=>{ev.preventDefault();ev.stopPropagation();onDown();};
+      const up=ev=>{ev.preventDefault();ev.stopPropagation();onUp&&onUp();};
+      el.addEventListener('pointerdown',down); el.addEventListener('pointerup',up); el.addEventListener('pointerleave',up);
     }
-
-    function init3D() {
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x0a0118);
-      scene.fog = new THREE.FogExp2(0x0a0118, 0.0055);
-      camera = new THREE.PerspectiveCamera(61, 1, 0.1, 1400);
-      camera.position.set(0, 5.4, 9.2);
-      camera.lookAt(0, 1.5, -24);
-      renderer = new THREE.WebGLRenderer({
-        canvas,
-        antialias: !IS_MOBILE,
-        alpha: false,
-        powerPreference: 'high-performance',
-        stencil: false,
-        depth: true
-      });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, IS_MOBILE ? 1.25 : 1.5));
-      renderer.setClearColor(0x0a0118, 1);
-      scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-      scene.add(new THREE.DirectionalLight(0x00f5d4, 0.85));
-      const pink = new THREE.DirectionalLight(0xff3388, 0.45); pink.position.set(-8, 14, -8); scene.add(pink);
-      const floor = new THREE.Mesh(new THREE.PlaneGeometry(26, 1400), new THREE.MeshLambertMaterial({ color: 0x0a0a1f }));
-      floor.rotation.x = -Math.PI/2; floor.position.z = -320; scene.add(floor);
-      for (let i = 0; i < 5; i++) {
-        const neonLine = new THREE.Mesh(
-          new THREE.PlaneGeometry(0.12, 1400),
-          new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? 0x00f5d4 : 0xff2e88, transparent: true, opacity: 0.65 })
-        );
-        neonLine.rotation.x = -Math.PI/2;
-        neonLine.position.set((i - 2) * 5.2, 0.02, -320);
-        scene.add(neonLine);
+    bindHoldButton('btn-lane-left',()=>changeLane(-1));
+    bindHoldButton('btn-lane-right',()=>changeLane(1));
+    bindHoldButton('btn-jump',()=>{ if(state?.player) state.player.holdingJump=true; jump(); },()=>{ if(state?.player) state.player.holdingJump=false; });
+    bindHoldButton('btn-slide',()=>startCrouch(true),()=>releaseCrouch());
+    bindHoldButton('btn-skate',()=>activateSkate());
+    document.getElementById('btn-start').addEventListener('click',startGame);
+    document.getElementById('btn-restart').addEventListener('click',startGame);
+    document.getElementById('btn-menu').addEventListener('click',()=>{ showScreen('start'); initMenu(); });
+    document.getElementById('btn-view-leaderboard').addEventListener('click',async()=>{ await renderLeaderboardTable(); showScreen('leaderboard'); });
+    document.getElementById('btn-back-menu').addEventListener('click',()=>showScreen('start'));
+    document.getElementById('pause-btn').addEventListener('click',()=>{ if(!state) return; state.paused=!state.paused; document.getElementById('pause-btn').textContent=state.paused?'▶':'⏸'; });
+    document.getElementById('btn-save-account').addEventListener('click',()=>{
+      const val=document.getElementById('username-input').value.trim();
+      if(val){ localStorage.setItem('streetdash_final_user',val); initAudio(); initMenu(); }
+    });
+    function initMenu(){
+      const user=localStorage.getItem('streetdash_final_user');
+      if(!user) showScreen('register');
+      else { document.getElementById('player-greeting').textContent=user; document.getElementById('hs-value').textContent=localStorage.getItem('streetdash_final_hs')||0; showScreen('start'); }
+    }
+    function init3D(){
+      scene=new THREE.Scene(); scene.background=new THREE.Color(0x070014); scene.fog=new THREE.Fog(0x070014,28,165);
+      camera=new THREE.PerspectiveCamera(60,1,0.2,220); camera.position.set(0,5.4,9.2); camera.lookAt(0,1.5,-24);
+      renderer=new THREE.WebGLRenderer({canvas,antialias:false,alpha:false,powerPreference:'high-performance',stencil:false,depth:true});
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,IS_MOBILE?1:1.2)); renderer.setClearColor(0x070014,1);
+      scene.add(new THREE.HemisphereLight(0x7af0e2,0x2a1030,0.95));
+      const key=new THREE.DirectionalLight(0xfff0c8,0.55); key.position.set(4,12,6); scene.add(key);
+      const floor=new THREE.Mesh(new THREE.PlaneGeometry(24,220), new THREE.MeshLambertMaterial({color:0x101028}));
+      floor.rotation.x=-Math.PI/2; floor.position.z=-70; scene.add(floor);
+      for(let i=0;i<3;i++){
+        const neon=new THREE.Mesh(new THREE.PlaneGeometry(0.14,220), new THREE.MeshBasicMaterial({color:i===1?0xff2e88:0x00f5d4,transparent:true,opacity:0.7}));
+        neon.rotation.x=-Math.PI/2; neon.position.set((i-1)*4.9,0.03,-70); scene.add(neon);
       }
-      playerMesh = createSpongeBob();
-      scene.add(playerMesh);
-      patrickMesh = createPatrick();
-      scene.add(patrickMesh);
+      playerMesh=createSpongeBob(); scene.add(playerMesh);
+      patrickMesh=createPatrick(); scene.add(patrickMesh);
       initBackground();
     }
-
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch(() => {});
-      });
-    }
-
-    init3D();
-    setTimeout(resize, 100);
-    initFirebase();
-    initMenu();
+    document.addEventListener('pointerdown',initAudio,{once:true});
+    init3D(); setTimeout(resize,100); initMenu();
   </script>
 </body>
 </html>
