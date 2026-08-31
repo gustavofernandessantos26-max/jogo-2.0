@@ -119,13 +119,17 @@
     </div>
     <div id="screen-leaderboard" class="screen">
       <h2>Mural da Rede</h2>
+      <p id="leaderboard-status" style="color:#00f5d4;margin-bottom:12px;min-height:1.4em;">Ranking global</p>
       <div class="leaderboard-box">
         <table class="leaderboard-table">
           <thead><tr><th>Pos</th><th>Runner</th><th>Score</th></tr></thead>
           <tbody id="leaderboard-rows"><tr><td colspan="3" class="leaderboard-loading">Carregando ranking...</td></tr></tbody>
         </table>
       </div>
-      <button id="btn-back-menu" class="secondary">Voltar ao Menu</button>
+      <div class="button-row">
+        <button id="btn-refresh-leaderboard">Atualizar</button>
+        <button id="btn-back-menu" class="secondary">Voltar ao Menu</button>
+      </div>
     </div>
     <div id="screen-game" class="screen">
       <div class="hud">
@@ -250,6 +254,12 @@
       obFence: new THREE.MeshBasicMaterial({color:0x00ffff}),
       obBlade: new THREE.MeshBasicMaterial({color:0xff00aa}),
       obHolo: new THREE.MeshBasicMaterial({color:0x00ffff,transparent:true,opacity:0.62}),
+      obPine: new THREE.MeshLambertMaterial({color:0xf0b429,emissive:0x5a2a00,emissiveIntensity:0.18}),
+      obPineDark: new THREE.MeshLambertMaterial({color:0xc47a12}),
+      obPineLeaf: new THREE.MeshLambertMaterial({color:0x2fbf4a,emissive:0x0a4a18,emissiveIntensity:0.2}),
+      obRock: new THREE.MeshLambertMaterial({color:0x6d6a68,emissive:0x1a1512,emissiveIntensity:0.12}),
+      obRockDark: new THREE.MeshLambertMaterial({color:0x4a4744}),
+      obRockLight: new THREE.MeshLambertMaterial({color:0x8b8680}),
       puMagnet: new THREE.MeshBasicMaterial({color:0x00aaff}),
       puShield: new THREE.MeshBasicMaterial({color:0x00ffff}),
       puSpeed: new THREE.MeshBasicMaterial({color:0xff00ff}),
@@ -299,7 +309,6 @@
       const brown = new THREE.MeshLambertMaterial({color:0x7a4a12});
       const black = new THREE.MeshLambertMaterial({color:0x1a120c});
       const red = new THREE.MeshLambertMaterial({color:0xd10600});
-      const lashMat = new THREE.MeshBasicMaterial({color:0x2a1208});
       head = new THREE.Group(); head.position.set(0,1.55,0); group.add(head);
       const sponge = new THREE.Mesh(new THREE.BoxGeometry(1.62,1.78,0.78), yellow); sponge.position.y=0.12; head.add(sponge);
       const holeGeo = new THREE.CircleGeometry(0.08,8);
@@ -393,17 +402,24 @@
     function updatePatrick() {
       if (!patrickMesh||!state||!state.running||state.paused) return;
       const p=state.player; const speedMul=state.slowMoActive?0.42:1;
-      let close=0.011*speedMul;
-      if (state.speedBoostActive) close*=0.35; if (state.skateActive) close*=0.22; if (state.ghostActive) close*=0.15;
-      if (state.speed<6) close*=1.45; if (state.speed>9) close*=0.7;
-      state.patrickGap-=close; if (state.patrickGap>6.4) state.patrickGap=6.4;
+      let close=0.0036*speedMul;
+      if (state.speedBoostActive) close*=0.28; if (state.skateActive) close*=0.18; if (state.ghostActive) close*=0.12;
+      if (state.speed<6) close*=1.12; if (state.speed>9) close*=0.55;
+      state.patrickGap-=close; if (state.patrickGap>6.8) state.patrickGap=6.8;
+      const HIT_Z=1.22, MIN_Z=1.18;
+      if (state.patrickGap<MIN_Z) state.patrickGap=MIN_Z;
       const warn=document.getElementById('patrick-warning');
-      if (warn) warn.style.opacity=state.patrickGap<2.6?'1':'0';
-      if (state.patrickGap<=1.15){ spawnParticles(p.lane,p.x,0xff8ab0,16); playSound('hit'); if(warn) warn.style.opacity='0'; gameOver(); return; }
+      if (warn) warn.style.opacity=state.patrickGap<2.8?'1':'0';
       const targetLaneX=p.visualX||(p.lane-1)*4.9;
-      state.patrickX+=(targetLaneX-state.patrickX)*0.07;
-      patrickMesh.position.x=state.patrickX; patrickMesh.position.z=Math.max(1.15,state.patrickGap);
+      state.patrickX+=(targetLaneX-state.patrickX)*0.045;
+      patrickMesh.position.x=state.patrickX; patrickMesh.position.z=state.patrickGap;
       animatePatrick();
+      const sameLane=Math.abs(state.patrickX-targetLaneX)<1.35;
+      const touching=state.patrickGap<=HIT_Z && sameLane;
+      const protectedPlayer=p.invincible||state.shieldActive||state.skateActive||state.ghostActive;
+      if (touching && !protectedPlayer){
+        spawnParticles(p.lane,p.x,0xff8ab0,16); playSound('hit'); if(warn) warn.style.opacity='0'; gameOver();
+      }
     }
     function pushPatrickBack(amount){ if(!state) return; state.patrickGap=Math.min(6.4,state.patrickGap+amount); }
     function updateRunPhysics(p,speedMul){
@@ -490,6 +506,42 @@
         if(trail.life<=0){ recycle(trail.mesh,pool.trails); return false; } return true; });
     }
     function scaledBox(sx,sy,sz,mat){ const mesh=new THREE.Mesh(SHARED.boxGeo,mat); mesh.scale.set(sx,sy,sz); return mesh; }
+    function createPineappleMesh(){
+      const group=new THREE.Group();
+      const body=new THREE.Mesh(new THREE.SphereGeometry(0.95,10,8),SHARED.obPine);
+      body.scale.set(0.95,1.28,0.95); body.position.y=1.05; group.add(body);
+      for(let i=0;i<8;i++){
+        const diamond=new THREE.Mesh(SHARED.octaGeo,SHARED.obPineDark);
+        const a=(i/8)*Math.PI*2;
+        diamond.scale.set(0.22,0.28,0.08);
+        diamond.position.set(Math.cos(a)*0.78,0.7+(i%2)*0.55,Math.sin(a)*0.78);
+        group.add(diamond);
+      }
+      for(let i=0;i<7;i++){
+        const leaf=new THREE.Mesh(SHARED.coneGeo,SHARED.obPineLeaf);
+        const a=(i/7)*Math.PI*2;
+        leaf.scale.set(0.42,0.85,0.18);
+        leaf.position.set(Math.cos(a)*0.18,2.15,Math.sin(a)*0.18);
+        leaf.rotation.z=Math.cos(a)*0.35;
+        leaf.rotation.x=Math.sin(a)*0.35;
+        group.add(leaf);
+      }
+      const crown=new THREE.Mesh(SHARED.coneGeo,SHARED.obPineLeaf);
+      crown.scale.set(0.38,1.05,0.38); crown.position.y=2.45; group.add(crown);
+      group.userDataY=1.15; return group;
+    }
+    function createRockMesh(){
+      const group=new THREE.Group();
+      const main=new THREE.Mesh(new THREE.DodecahedronGeometry(0.85,0),SHARED.obRock);
+      main.scale.set(1.35,0.85,1.15); main.position.y=0.62; main.rotation.set(0.3,0.4,0.1); group.add(main);
+      const bump=new THREE.Mesh(new THREE.IcosahedronGeometry(0.55,0),SHARED.obRockDark);
+      bump.position.set(-0.55,0.42,0.28); bump.scale.set(1.1,0.8,0.9); group.add(bump);
+      const bump2=new THREE.Mesh(new THREE.SphereGeometry(0.42,7,6),SHARED.obRockLight);
+      bump2.position.set(0.52,0.38,-0.22); bump2.scale.set(1.15,0.7,1); group.add(bump2);
+      const pebble=new THREE.Mesh(new THREE.DodecahedronGeometry(0.28,0),SHARED.obRockDark);
+      pebble.position.set(0.15,0.22,0.55); group.add(pebble);
+      group.userDataY=0.55; return group;
+    }
     function createObstacleMesh(type){
       let mesh;
       if(type==='train'){ mesh=scaledBox(3.3,2.7,8.5,SHARED.obTrain); mesh.userDataY=1.35; }
@@ -501,6 +553,8 @@
       else if(type==='electric_fence'){ mesh=scaledBox(3.4,4.5,0.25,SHARED.obFence); mesh.userDataY=2.25; }
       else if(type==='spinning_blade'){ mesh=new THREE.Group(); mesh.add(scaledBox(4.2,0.25,0.8,SHARED.obBlade)); mesh.userDataY=1.8; }
       else if(type==='holo_wall'){ mesh=scaledBox(3.2,4.9,0.4,SHARED.obHolo); mesh.userDataY=2.8; }
+      else if(type==='pineapple'){ mesh=createPineappleMesh(); }
+      else if(type==='rock'){ mesh=createRockMesh(); }
       return mesh;
     }
     function createCoinMesh(){ return new THREE.Mesh(SHARED.coinGeo,SHARED.coinMat); }
@@ -593,15 +647,27 @@
       state.skateActive=true; state.skateTimer=300; state.skateCooldown=600; pu.skate.classList.add('active');
       playSound('powerup'); spawnParticles(state.player.lane,state.player.x,0x00ff99,20); pushPatrickBack(1.1);
     }
-    const OBSTACLE_TYPES=['train','barrier','low_barrier','drone','laser','moving_barrier','electric_fence','spinning_blade','holo_wall'];
-    function spawnObstacle(){
+    const OBSTACLE_TYPES=['pineapple','pineapple','rock','rock','rock','train','barrier','low_barrier','drone','laser','moving_barrier','electric_fence','spinning_blade','holo_wall'];
+    function pickObstacleType(){
+      const early=['pineapple','pineapple','rock','rock','rock','barrier','low_barrier','drone','moving_barrier'];
+      const dist=state?.distance||0;
       let type=OBSTACLE_TYPES[Math.floor(Math.random()*OBSTACLE_TYPES.length)];
-      if((state?.distance||0)<7500 && ['holo_wall','electric_fence','train','laser'].includes(type))
-        type=['barrier','low_barrier','drone','moving_barrier','spinning_blade'][Math.floor(Math.random()*5)];
-      if(type==='holo_wall'&&(state?.distance||0)<9000) type='barrier';
+      if(dist<7500 && ['holo_wall','electric_fence','train','laser'].includes(type))
+        type=early[Math.floor(Math.random()*early.length)];
+      if(type==='holo_wall'&&dist<9000) type='pineapple';
+      if(Math.random()<0.46) type=Math.random()<0.55?'rock':'pineapple';
+      return type;
+    }
+    function spawnObstacle(){
+      const type=pickObstacleType();
       const lane=Math.floor(Math.random()*LANES);
       let w=58,h=58,canSlide=false;
-      if(type==='train'){w=98;h=72;} if(type==='low_barrier'){w=56;h=36;canSlide=true;} if(type==='laser'){w=62;h=82;} if(type==='holo_wall'){w=48;h=98;}
+      if(type==='train'){w=98;h=72;}
+      if(type==='low_barrier'){w=56;h=36;canSlide=true;}
+      if(type==='laser'){w=62;h=82;}
+      if(type==='holo_wall'){w=48;h=98;}
+      if(type==='pineapple'){w=54;h=70;}
+      if(type==='rock'){w=60;h=34;}
       const ob={lane,x:W+130,y:LANE_CENTERS[lane],w,h,type,canSlide,mesh:createObstacleMesh(type)};
       scene.add(ob.mesh); state.obstacles.push(ob);
     }
@@ -668,8 +734,11 @@
       if(state.ghostActive&&--state.ghostTimer<=0){ state.ghostActive=false; pu.ghost.classList.remove('active'); }
       if(state.skateActive&&--state.skateTimer<=0){ state.skateActive=false; pu.skate.classList.remove('active'); }
       if(state.skateCooldown>0) state.skateCooldown--;
-      if(++state.spawnTimer>Math.max(48,115-Math.floor(state.distance/2200)*4)){
-        state.spawnTimer=0; const r=Math.random(); if(r<0.52) spawnObstacle(); else if(r<0.78) spawnCoin(); else spawnPowerup();
+      if(++state.spawnTimer>Math.max(36,88-Math.floor(state.distance/2000)*4)){
+        state.spawnTimer=0; const r=Math.random();
+        if(r<0.66){ spawnObstacle(); if(Math.random()<0.38) spawnObstacle(); }
+        else if(r<0.86) spawnCoin();
+        else spawnPowerup();
       }
       state.obstacles=state.obstacles.filter(ob=>{
         ob.x-=state.speed*speedMultiplier;
@@ -736,34 +805,131 @@
         osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination); osc.start(now); osc.stop(now+0.38);
       }catch(e){}
     }
+    const LB_PRIVATE='vMvMlPlaGEmL3ZyTVWSnsgpqUnEkZdK0urR2kFpRAg4g';
+    const LB_PUBLIC='6a95800c8f40bb13509a9d69';
+    const LB_HTTP='http://dreamlo.com/lb/';
+    const LB_PROXY='https://api.allorigins.win/raw?url=';
+    const LB_CACHE_KEY='streetdash_global_leaderboard';
+    const LB_SEED=[{name:"SpongeBob",score:21500},{name:"PatrickRunner",score:16800},{name:"SquidwardX",score:12900},{name:"MrKrabsGold",score:9800},{name:"SandyCyber",score:7100}];
+    function sanitizeRunnerName(name){
+      return String(name||'Runner').replace(/[^\wÀ-ÿ \-_.]/g,'').trim().slice(0,14)||'Runner';
+    }
+    function readCachedLeaderboard(){
+      try{
+        const stored=localStorage.getItem(LB_CACHE_KEY);
+        if(stored){
+          const parsed=JSON.parse(stored);
+          if(Array.isArray(parsed)&&parsed.length) return parsed;
+        }
+      }catch(e){}
+      return LB_SEED.slice();
+    }
+    function writeCachedLeaderboard(list){
+      const clean=(list||[]).map(e=>({name:sanitizeRunnerName(e.name),score:Math.max(0,parseInt(e.score,10)||0)}))
+        .filter(e=>e.name).sort((a,b)=>b.score-a.score).slice(0,20);
+      localStorage.setItem(LB_CACHE_KEY,JSON.stringify(clean));
+      return clean;
+    }
+    function mergeLocalScore(list,name,score){
+      const rows=Array.isArray(list)?list.map(e=>({name:e.name,score:e.score})): [];
+      const found=rows.find(e=>e.name===name);
+      if(found){ if(score>found.score) found.score=score; }
+      else rows.push({name,score});
+      return writeCachedLeaderboard(rows);
+    }
+    function parseDreamloEntries(data){
+      const entry=data&&data.dreamlo&&data.dreamlo.leaderboard&&data.dreamlo.leaderboard.entry;
+      if(!entry) return [];
+      const rows=Array.isArray(entry)?entry:[entry];
+      return rows.map(e=>({name:sanitizeRunnerName(e.name),score:Math.max(0,parseInt(e.score,10)||0)}));
+    }
+    async function dreamloFetch(path,timeoutMs){
+      const httpUrl=LB_HTTP+path;
+      const ctrl=typeof AbortController==='function'?new AbortController():null;
+      const timer=ctrl?setTimeout(()=>ctrl.abort(),timeoutMs||7000):null;
+      try{
+        const res=await fetch(httpUrl,{method:'GET',mode:'cors',cache:'no-store',signal:ctrl?ctrl.signal:undefined});
+        if(!res.ok) throw new Error('http '+res.status);
+        const text=(await res.text()).trim();
+        if(!text||text.indexOf('ERROR')===0) throw new Error(text||'empty');
+        return text;
+      }catch(directErr){
+        const proxied=LB_PROXY+encodeURIComponent(httpUrl);
+        const res=await fetch(proxied,{method:'GET',cache:'no-store'});
+        if(!res.ok) throw directErr;
+        const text=(await res.text()).trim();
+        if(!text||text.indexOf('ERROR')===0) throw new Error(text||'empty');
+        return text;
+      }finally{
+        if(timer) clearTimeout(timer);
+      }
+    }
+    async function fetchGlobalLeaderboard(){
+      const text=await dreamloFetch(LB_PUBLIC+'/json',7000);
+      const parsed=parseDreamloEntries(JSON.parse(text));
+      if(!parsed.length) throw new Error('empty board');
+      return writeCachedLeaderboard(parsed);
+    }
+    async function submitGlobalScore(name,score){
+      const safe=sanitizeRunnerName(name);
+      const pts=Math.max(0,parseInt(score,10)||0);
+      mergeLocalScore(readCachedLeaderboard(),safe,pts);
+      const path=LB_PRIVATE+'/add/'+encodeURIComponent(safe)+'/'+pts;
+      const text=await dreamloFetch(path,8000);
+      if(text.indexOf('OK')===-1&&text.charAt(0)!=='{') throw new Error(text);
+      return true;
+    }
     function getLocalLeaderboard(){
-      const stored=localStorage.getItem('streetdash_final_leaderboard');
-      if(stored) return JSON.parse(stored);
-      const bots=[{name:"SpongeBob⚡",score:21500},{name:"PatrickRunner",score:16800},{name:"SquidwardX",score:12900},{name:"MrKrabsGold",score:9800},{name:"SandyCyber",score:7100}];
-      localStorage.setItem('streetdash_final_leaderboard',JSON.stringify(bots)); return bots;
+      return readCachedLeaderboard();
     }
     function updateLeaderboard(name,score){
-      let lb=getLocalLeaderboard(); let entry=lb.find(e=>e.name===name);
-      if(entry){ if(score>entry.score) entry.score=score; } else lb.push({name,score});
-      lb.sort((a,b)=>b.score-a.score); localStorage.setItem('streetdash_final_leaderboard',JSON.stringify(lb.slice(0,10)));
+      mergeLocalScore(readCachedLeaderboard(),sanitizeRunnerName(name),score);
+      submitGlobalScore(name,score).catch(()=>{});
+    }
+    function setLeaderboardStatus(msg){
+      const el=document.getElementById('leaderboard-status');
+      if(el) el.textContent=msg||'';
     }
     async function renderLeaderboardTable(){
-      const tbody=document.getElementById('leaderboard-rows'); const lb=getLocalLeaderboard(); const current=localStorage.getItem('streetdash_final_user');
+      const tbody=document.getElementById('leaderboard-rows');
+      const current=localStorage.getItem('streetdash_final_user');
+      tbody.innerHTML='<tr><td colspan="3" class="leaderboard-loading">Sincronizando ranking global...</td></tr>';
+      setLeaderboardStatus('Conectando à rede...');
+      let lb=readCachedLeaderboard();
+      let source='cache';
+      try{
+        lb=await fetchGlobalLeaderboard();
+        source='global';
+      }catch(e){
+        source='offline';
+      }
       tbody.innerHTML='';
-      lb.forEach((row,i)=>{ const tr=document.createElement('tr'); if(row.name===current) tr.classList.add('player-row');
-        tr.innerHTML=`<td>${i+1}º</td><td>${row.name}</td><td>${row.score}</td>`; tbody.appendChild(tr); });
+      if(!lb.length){
+        tbody.innerHTML='<tr><td colspan="3" class="leaderboard-loading">Nenhum recorde ainda.</td></tr>';
+      }else{
+        lb.slice(0,10).forEach((row,i)=>{
+          const tr=document.createElement('tr');
+          if(row.name===current) tr.classList.add('player-row');
+          const posClass=i===0?'pos-1':i===1?'pos-2':i===2?'pos-3':'';
+          tr.innerHTML='<td class="'+posClass+'">'+(i+1)+'º</td><td>'+row.name+'</td><td>'+row.score+'</td>';
+          tbody.appendChild(tr);
+        });
+      }
+      if(source==='global') setLeaderboardStatus('Ranking global ao vivo');
+      else if(source==='offline') setLeaderboardStatus('Sem rede. Mostrando último ranking salvo.');
+      else setLeaderboardStatus('Ranking local temporário');
     }
     function gameOver(){
       state.running=false; gameLoopActive=false; cancelAnimationFrame(raf);
-      const name=localStorage.getItem('streetdash_final_user')||'SpongeBob';
+      const name=sanitizeRunnerName(localStorage.getItem('streetdash_final_user')||'SpongeBob');
       const finalScore=Math.floor(state.score*state.multiplier*(state.doubleScoreActive?1.85:1));
       const hs=parseInt(localStorage.getItem('streetdash_final_hs'))||0;
       if(finalScore>hs) localStorage.setItem('streetdash_final_hs',finalScore);
-      updateLeaderboard(name,finalScore);
       document.getElementById('final-score').textContent=finalScore;
       document.getElementById('final-coins').textContent=state.coins;
       document.getElementById('final-hs').textContent=Math.max(finalScore,hs);
       showScreen('gameover');
+      submitGlobalScore(name,finalScore).catch(()=>{});
     }
     function startGame(){
       cancelAnimationFrame(raf); gameLoopActive=true; clear3DScene(); state=initState(); state.running=true;
@@ -786,11 +952,12 @@
     document.getElementById('btn-start').addEventListener('click',startGame);
     document.getElementById('btn-restart').addEventListener('click',startGame);
     document.getElementById('btn-menu').addEventListener('click',()=>{ showScreen('start'); initMenu(); });
-    document.getElementById('btn-view-leaderboard').addEventListener('click',async()=>{ await renderLeaderboardTable(); showScreen('leaderboard'); });
+    document.getElementById('btn-view-leaderboard').addEventListener('click',async()=>{ showScreen('leaderboard'); await renderLeaderboardTable(); });
+    document.getElementById('btn-refresh-leaderboard').addEventListener('click',()=>renderLeaderboardTable());
     document.getElementById('btn-back-menu').addEventListener('click',()=>showScreen('start'));
     document.getElementById('pause-btn').addEventListener('click',()=>{ if(!state) return; state.paused=!state.paused; document.getElementById('pause-btn').textContent=state.paused?'▶':'⏸'; });
     document.getElementById('btn-save-account').addEventListener('click',()=>{
-      const val=document.getElementById('username-input').value.trim();
+      const val=sanitizeRunnerName(document.getElementById('username-input').value);
       if(val){ localStorage.setItem('streetdash_final_user',val); initAudio(); initMenu(); }
     });
     function initMenu(){
