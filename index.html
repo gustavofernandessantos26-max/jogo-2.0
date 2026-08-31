@@ -18,22 +18,25 @@
       --white: #eef1ff;
     }
     * { box-sizing: border-box; margin:0; padding:0; font-family: 'Segoe UI', Roboto, sans-serif; user-select:none; -webkit-tap-highlight-color:transparent; }
-    body, html { width:100%; height:100%; background:#0a0118; overflow:hidden; display:flex; justify-content:center; align-items:center; }
+    body, html { width:100%; height:100%; background:#1a8bb8; overflow:hidden; display:flex; justify-content:center; align-items:center; }
     #game-container {
       position:relative; width:100%; height:100%; max-width:1120px; max-height:630px;
       border:3px solid var(--neon-cyan); box-shadow:0 0 40px rgba(0,245,212,0.5);
-      background:#0f0224; border-radius:12px; overflow:hidden;
+      background:#1fa3c9; border-radius:12px; overflow:hidden;
+    }
+    #bikini-wallpaper {
+      position:absolute; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; display:block;
     }
     #game-container::after {
       content:""; position:absolute; inset:0; pointer-events:none; z-index:8;
       background:
-        radial-gradient(ellipse at 50% 42%, transparent 42%, rgba(8,0,20,0.62) 100%),
-        linear-gradient(180deg, rgba(0,245,212,0.05), transparent 18%, transparent 78%, rgba(255,46,136,0.08));
+        radial-gradient(ellipse at 50% 42%, transparent 50%, rgba(8,60,90,0.28) 100%),
+        linear-gradient(180deg, rgba(80,200,230,0.08), transparent 22%, transparent 72%, rgba(210,180,80,0.10));
     }
-    .screen { position:absolute; top:0; left:0; width:100%; height:100%; display:none; flex-direction:column; justify-content:center; align-items:center; z-index:10; color:#eef1ff; text-align:center; padding:20px; }
+    .screen { position:absolute; top:0; left:0; width:100%; height:100%; display:none; flex-direction:column; justify-content:center; align-items:center; z-index:10; color:#eef1ff; text-align:center; padding:20px; background:rgba(6,40,70,0.28); }
     .screen.active { display:flex; }
     #screen-game { background:transparent; padding:0; }
-    #screen-gameover { background:rgba(10,1,24,0.95); backdrop-filter:blur(12px); }
+    #screen-gameover { background:rgba(6,30,55,0.82); backdrop-filter:blur(12px); }
     canvas { width:100%; height:100%; display:block; }
     h1 { font-size:3.9rem; text-transform:uppercase; color:#fff; text-shadow:0 0 20px var(--neon-cyan), 0 0 40px var(--neon-pink); letter-spacing:8px; margin-bottom:5px; }
     h2 { font-size:2.5rem; color:#ff2e88; text-shadow:0 0 20px #ff2e88; margin-bottom:18px; text-transform:uppercase; }
@@ -92,6 +95,7 @@
 </head>
 <body>
   <div id="game-container">
+    <canvas id="bikini-wallpaper"></canvas>
     <div id="screen-register" class="screen">
       <h1>Street Dash</h1>
       <h2 style="color:#ffcc00;">Bob Esponja Final</h2>
@@ -260,6 +264,9 @@
       obRock: new THREE.MeshLambertMaterial({color:0x6d6a68,emissive:0x1a1512,emissiveIntensity:0.12}),
       obRockDark: new THREE.MeshLambertMaterial({color:0x4a4744}),
       obRockLight: new THREE.MeshLambertMaterial({color:0x8b8680}),
+      obMoai: new THREE.MeshLambertMaterial({color:0x7ea0b6,emissive:0x1a2a38,emissiveIntensity:0.16}),
+      obMoaiDark: new THREE.MeshLambertMaterial({color:0x5d7d92}),
+      obMoaiDoor: new THREE.MeshLambertMaterial({color:0x6b3a12}),
       puMagnet: new THREE.MeshBasicMaterial({color:0x00aaff}),
       puShield: new THREE.MeshBasicMaterial({color:0x00ffff}),
       puSpeed: new THREE.MeshBasicMaterial({color:0xff00ff}),
@@ -463,24 +470,64 @@
       if(p.invincible&&!state.shieldActive&&!state.skateActive) playerMesh.visible=Math.floor(state.frame/3)%2===0;
       else playerMesh.visible=true;
     }
-    function createBackgroundBuilding(x,z,width,height,mat){
+    function createKelp(x,z){
       const group=new THREE.Group();
-      const building=new THREE.Mesh(SHARED.boxGeo,mat); building.scale.set(width,height,7); building.position.y=height/2; group.add(building);
+      const kelpMat=new THREE.MeshLambertMaterial({color:0x1f8a3a,emissive:0x063016,emissiveIntensity:0.25});
+      const n=3+Math.floor(Math.random()*3);
+      for(let i=0;i<n;i++){
+        const h=6+Math.random()*10;
+        const stalk=new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.32,h,6),kelpMat);
+        stalk.position.set((Math.random()-0.5)*2.2,h/2,(Math.random()-0.5)*1.4);
+        stalk.rotation.z=(Math.random()-0.5)*0.25;
+        group.add(stalk);
+      }
       group.position.set(x,0,z); return group;
+    }
+    function createBgPineapple(x,z){
+      const group=new THREE.Group();
+      const body=new THREE.Mesh(new THREE.SphereGeometry(3.2,10,8),SHARED.obPine);
+      body.scale.set(0.95,1.45,0.95); body.position.y=4.2; group.add(body);
+      const crown=new THREE.Mesh(SHARED.coneGeo,SHARED.obPineLeaf);
+      crown.scale.set(2.2,5.2,2.2); crown.position.y=9.6; group.add(crown);
+      const door=new THREE.Mesh(SHARED.boxGeo,new THREE.MeshLambertMaterial({color:0x6b3a12}));
+      door.scale.set(1.3,2.1,0.3); door.position.set(0,1.2,3.1); group.add(door);
+      group.position.set(x,0,z); group.scale.set(1.3,1.3,1.3); return group;
+    }
+    function createBgMoai(x,z){
+      const group=new THREE.Group();
+      const stone=new THREE.MeshLambertMaterial({color:0x6e8ea8,emissive:0x1a2a38,emissiveIntensity:0.2});
+      const head=new THREE.Mesh(new THREE.BoxGeometry(4.2,7.4,3.6),stone); head.position.y=3.8; group.add(head);
+      const nose=new THREE.Mesh(new THREE.BoxGeometry(0.7,1.6,1.4),stone); nose.position.set(0,4.2,2.1); group.add(nose);
+      const brow=new THREE.Mesh(new THREE.BoxGeometry(3.2,0.45,0.6),stone); brow.position.set(0,6.1,1.9); group.add(brow);
+      group.position.set(x,0,z); return group;
+    }
+    function createBgRockHouse(x,z){
+      const group=new THREE.Group();
+      const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(2.6,0),SHARED.obRock);
+      rock.scale.set(1.6,1.05,1.4); rock.position.y=2.1; group.add(rock);
+      group.position.set(x,0,z); return group;
+    }
+    function createBackgroundBuilding(x,z){
+      const roll=Math.random();
+      if(roll<0.28) return createBgPineapple(x,z);
+      if(roll<0.5) return createBgMoai(x,z);
+      if(roll<0.7) return createBgRockHouse(x,z);
+      return createKelp(x,z);
     }
     function initBackground(){
       backgroundBuildings=[];
       const count=IS_MOBILE?8:12;
       for(let i=0;i<count;i++){
         const side=i%2===0?-1:1;
-        const b=createBackgroundBuilding(side*(18+Math.random()*14), -24-i*22, 6+Math.random()*7, 14+Math.random()*22, i%2?SHARED.bldMatA:SHARED.bldMatB);
+        const b=createBackgroundBuilding(side*(16+Math.random()*16), -24-i*22);
         scene.add(b); backgroundBuildings.push(b);
       }
     }
     function updateBackground(){
       if(!state) return;
       const speed=state.speed*(state.slowMoActive?0.45:1);
-      backgroundBuildings.forEach(b=>{ b.position.z+=speed*0.32; if(b.position.z>28){ b.position.z=-150-Math.random()*30; b.position.x=(b.position.x>=0?1:-1)*(20+Math.random()*18);} });
+      backgroundBuildings.forEach(b=>{ b.position.z+=speed*0.32; if(b.position.z>28){ b.position.z=-150-Math.random()*30; b.position.x=(b.position.x>=0?1:-1)*(18+Math.random()*18);} });
+      if(typeof window.tickBikiniBubbles==='function') window.tickBikiniBubbles();
     }
     function spawnSpeedLines(){
       if(!state||state.speed<8||speedLines.length>=MAX_SPEED_LINES) return;
@@ -542,6 +589,27 @@
       pebble.position.set(0.15,0.22,0.55); group.add(pebble);
       group.userDataY=0.55; return group;
     }
+    function createSquidHouseMesh(){
+      const group=new THREE.Group();
+      const head=new THREE.Mesh(SHARED.boxGeo,SHARED.obMoai);
+      head.scale.set(1.7,3.15,1.35); head.position.y=1.65; group.add(head);
+      const brow=new THREE.Mesh(SHARED.boxGeo,SHARED.obMoaiDark);
+      brow.scale.set(1.55,0.18,0.28); brow.position.set(0,2.85,0.62); group.add(brow);
+      const nose=new THREE.Mesh(SHARED.boxGeo,SHARED.obMoaiDark);
+      nose.scale.set(0.28,0.72,0.55); nose.position.set(0,2.05,0.72); group.add(nose);
+      const eyeL=new THREE.Mesh(SHARED.sphereGeo,new THREE.MeshBasicMaterial({color:0xdbefff}));
+      eyeL.scale.set(0.28,0.28,0.16); eyeL.position.set(-0.38,2.42,0.68); group.add(eyeL);
+      const eyeR=eyeL.clone(); eyeR.position.x=0.38; group.add(eyeR);
+      const pupil=new THREE.Mesh(SHARED.sphereGeo,new THREE.MeshBasicMaterial({color:0x1a120c}));
+      pupil.scale.set(0.12,0.12,0.08); pupil.position.set(-0.38,2.4,0.78); group.add(pupil);
+      const pupilR=pupil.clone(); pupilR.position.x=0.38; group.add(pupilR);
+      const door=new THREE.Mesh(SHARED.boxGeo,SHARED.obMoaiDoor);
+      door.scale.set(0.55,0.72,0.12); door.position.set(0,0.42,0.7); group.add(door);
+      const earL=new THREE.Mesh(SHARED.boxGeo,SHARED.obMoaiDark);
+      earL.scale.set(0.18,0.55,0.35); earL.position.set(-0.95,2.05,0); group.add(earL);
+      const earR=earL.clone(); earR.position.x=0.95; group.add(earR);
+      group.userDataY=1.55; return group;
+    }
     function createObstacleMesh(type){
       let mesh;
       if(type==='train'){ mesh=scaledBox(3.3,2.7,8.5,SHARED.obTrain); mesh.userDataY=1.35; }
@@ -555,6 +623,7 @@
       else if(type==='holo_wall'){ mesh=scaledBox(3.2,4.9,0.4,SHARED.obHolo); mesh.userDataY=2.8; }
       else if(type==='pineapple'){ mesh=createPineappleMesh(); }
       else if(type==='rock'){ mesh=createRockMesh(); }
+      else if(type==='squidhouse'){ mesh=createSquidHouseMesh(); }
       return mesh;
     }
     function createCoinMesh(){ return new THREE.Mesh(SHARED.coinGeo,SHARED.coinMat); }
@@ -589,6 +658,7 @@
       const horizonY=H*0.61; LANE_CENTERS=[horizonY,horizonY+75,horizonY+150];
       if(state){ const p=state.player; p.x=W*0.23; p.baseY=LANE_CENTERS[p.lane]; if(p.onGround) p.y=p.baseY; }
       if(camera&&renderer){ camera.aspect=W/H; camera.updateProjectionMatrix(); renderer.setSize(W,H); }
+      if(typeof paintBikiniWallpaper==='function') paintBikiniWallpaper();
     }
     window.addEventListener('resize',resize);
     let touchStartX=0,touchStartY=0;
@@ -647,15 +717,16 @@
       state.skateActive=true; state.skateTimer=300; state.skateCooldown=600; pu.skate.classList.add('active');
       playSound('powerup'); spawnParticles(state.player.lane,state.player.x,0x00ff99,20); pushPatrickBack(1.1);
     }
-    const OBSTACLE_TYPES=['pineapple','pineapple','rock','rock','rock','train','barrier','low_barrier','drone','laser','moving_barrier','electric_fence','spinning_blade','holo_wall'];
+    const OBSTACLE_TYPES=['pineapple','pineapple','rock','rock','squidhouse','squidhouse','train','barrier','low_barrier','drone','laser','moving_barrier','electric_fence','spinning_blade','holo_wall'];
     function pickObstacleType(){
-      const early=['pineapple','pineapple','rock','rock','rock','barrier','low_barrier','drone','moving_barrier'];
+      const early=['pineapple','rock','rock','squidhouse','squidhouse','barrier','low_barrier','drone','moving_barrier'];
+      const themed=['pineapple','rock','squidhouse'];
       const dist=state?.distance||0;
       let type=OBSTACLE_TYPES[Math.floor(Math.random()*OBSTACLE_TYPES.length)];
       if(dist<7500 && ['holo_wall','electric_fence','train','laser'].includes(type))
         type=early[Math.floor(Math.random()*early.length)];
-      if(type==='holo_wall'&&dist<9000) type='pineapple';
-      if(Math.random()<0.46) type=Math.random()<0.55?'rock':'pineapple';
+      if(type==='holo_wall'&&dist<9000) type='squidhouse';
+      if(Math.random()<0.5) type=themed[Math.floor(Math.random()*themed.length)];
       return type;
     }
     function spawnObstacle(){
@@ -668,6 +739,7 @@
       if(type==='holo_wall'){w=48;h=98;}
       if(type==='pineapple'){w=54;h=70;}
       if(type==='rock'){w=60;h=34;}
+      if(type==='squidhouse'){w=56;h=88;}
       const ob={lane,x:W+130,y:LANE_CENTERS[lane],w,h,type,canSlide,mesh:createObstacleMesh(type)};
       scene.add(ob.mesh); state.obstacles.push(ob);
     }
@@ -965,14 +1037,85 @@
       if(!user) showScreen('register');
       else { document.getElementById('player-greeting').textContent=user; document.getElementById('hs-value').textContent=localStorage.getItem('streetdash_final_hs')||0; showScreen('start'); }
     }
+    function paintBikiniWallpaper(){
+      const wp=document.getElementById('bikini-wallpaper');
+      const box=document.getElementById('game-container');
+      if(!wp||!box) return;
+      const w=wp.width=box.clientWidth||1100;
+      const h=wp.height=box.clientHeight||620;
+      const ctx=wp.getContext('2d');
+      const sky=ctx.createLinearGradient(0,0,0,h);
+      sky.addColorStop(0,'#7ad7f0'); sky.addColorStop(0.45,'#2eb3d6'); sky.addColorStop(0.72,'#1b8fb8'); sky.addColorStop(1,'#e2c36a');
+      ctx.fillStyle=sky; ctx.fillRect(0,0,w,h);
+      ctx.fillStyle='rgba(255,255,255,0.18)';
+      ctx.beginPath(); ctx.ellipse(w*0.18,h*0.16,90,34,0,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w*0.72,h*0.12,70,26,0,0,Math.PI*2); ctx.fill();
+      const sandY=h*0.68;
+      ctx.fillStyle='#e6c35a'; ctx.fillRect(0,sandY,w,h-sandY);
+      ctx.fillStyle='#d7b14a';
+      for(let i=0;i<18;i++){ ctx.beginPath(); ctx.ellipse((i+0.3)*(w/18),sandY+20+((i*17)%40),28,10,0,0,Math.PI*2); ctx.fill(); }
+      ctx.strokeStyle='#c9a33d'; ctx.lineWidth=10; ctx.beginPath();
+      ctx.moveTo(0,sandY+h*0.14); ctx.quadraticCurveTo(w*0.5,sandY+h*0.08,w,sandY+h*0.16); ctx.stroke();
+      function kelp(x,base,hh,shade){
+        ctx.strokeStyle=shade; ctx.lineWidth=10; ctx.beginPath();
+        ctx.moveTo(x,base);
+        ctx.bezierCurveTo(x-18,base-hh*0.35,x+22,base-hh*0.65,x-8,base-hh);
+        ctx.stroke();
+      }
+      for(let i=0;i<7;i++) kelp(30+i*28,sandY+10,120+i*18,i%2?'#2fa64a':'#1d7a34');
+      for(let i=0;i<6;i++) kelp(w-40-i*26,sandY+8,110+i*16,i%2?'#2fa64a':'#1d7a34');
+      function pineapple(x,y,s){
+        ctx.fillStyle='#f0b429';
+        ctx.beginPath(); ctx.ellipse(x,y,46*s,62*s,0,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle='#c47a12'; ctx.lineWidth=2*s;
+        for(let r=-2;r<=2;r++){ ctx.beginPath(); ctx.moveTo(x-30*s,y+r*18*s); ctx.lineTo(x+30*s,y+r*18*s+8*s); ctx.stroke(); }
+        ctx.fillStyle='#2fbf4a';
+        for(let i=-2;i<=2;i++){
+          ctx.beginPath(); ctx.moveTo(x,y-58*s); ctx.lineTo(x+i*14*s,y-108*s); ctx.lineTo(x+i*6*s,y-58*s); ctx.fill();
+        }
+        ctx.fillStyle='#6b3a12'; ctx.fillRect(x-10*s,y+18*s,20*s,28*s);
+        ctx.fillStyle='#87e7ff'; ctx.fillRect(x-28*s,y-8*s,14*s,12*s); ctx.fillRect(x+14*s,y-8*s,14*s,12*s);
+      }
+      function moai(x,y,s){
+        ctx.fillStyle='#7ea0b6'; ctx.fillRect(x-38*s,y-110*s,76*s,130*s);
+        ctx.fillStyle='#5d7d92'; ctx.fillRect(x-8*s,y-70*s,16*s,36*s);
+        ctx.fillStyle='#dbefff'; ctx.beginPath(); ctx.arc(x-16*s,y-78*s,7*s,0,Math.PI*2); ctx.arc(x+16*s,y-78*s,7*s,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#6b3a12'; ctx.fillRect(x-12*s,y-8*s,24*s,28*s);
+      }
+      function rockHouse(x,y,s){
+        ctx.fillStyle='#8a8378';
+        ctx.beginPath(); ctx.ellipse(x,y,52*s,34*s,0,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#6b3a12'; ctx.beginPath(); ctx.arc(x,y+6*s,12*s,Math.PI,0); ctx.fill();
+      }
+      pineapple(w*0.22,sandY-10,1.15);
+      moai(w*0.50,sandY+18,1.05);
+      rockHouse(w*0.78,sandY+16,1.2);
+      ctx.fillStyle='#ff5a8a';
+      for(let i=0;i<9;i++){
+        const fx=80+i*(w-140)/8, fy=sandY+48+(i%3)*16;
+        ctx.beginPath(); ctx.arc(fx,fy,7,0,Math.PI*2); ctx.fill();
+      }
+      window._bikiniBubbles=window._bikiniBubbles||Array.from({length:18},()=>({x:Math.random()*w,y:Math.random()*h,r:3+Math.random()*7,v:0.4+Math.random()*0.9}));
+    }
+    function tickBikiniBubbles(){
+      const wp=document.getElementById('bikini-wallpaper'); if(!wp) return;
+      const ctx=wp.getContext('2d'); if(!ctx||!window._bikiniBubbles) return;
+      paintBikiniWallpaper();
+      ctx.strokeStyle='rgba(255,255,255,0.55)'; ctx.lineWidth=2;
+      window._bikiniBubbles.forEach(b=>{
+        b.y-=b.v; if(b.y<-10){ b.y=wp.height+10; b.x=Math.random()*wp.width; }
+        ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.stroke();
+      });
+    }
+    window.tickBikiniBubbles=tickBikiniBubbles;
     function init3D(){
-      scene=new THREE.Scene(); scene.background=new THREE.Color(0x070014); scene.fog=new THREE.Fog(0x070014,28,165);
+      scene=new THREE.Scene(); scene.background=new THREE.Color(0x2eb3d6); scene.fog=new THREE.Fog(0x2aa4c6,36,175);
       camera=new THREE.PerspectiveCamera(60,1,0.2,220); camera.position.set(0,5.4,9.2); camera.lookAt(0,1.5,-24);
       renderer=new THREE.WebGLRenderer({canvas,antialias:false,alpha:false,powerPreference:'high-performance',stencil:false,depth:true});
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,IS_MOBILE?1:1.2)); renderer.setClearColor(0x070014,1);
-      scene.add(new THREE.HemisphereLight(0x7af0e2,0x2a1030,0.95));
-      const key=new THREE.DirectionalLight(0xfff0c8,0.55); key.position.set(4,12,6); scene.add(key);
-      const floor=new THREE.Mesh(new THREE.PlaneGeometry(24,220), new THREE.MeshLambertMaterial({color:0x101028}));
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,IS_MOBILE?1:1.2)); renderer.setClearColor(0x2eb3d6,1);
+      scene.add(new THREE.HemisphereLight(0xb8f0ff,0xc2a24a,1.05));
+      const key=new THREE.DirectionalLight(0xfff6c8,0.7); key.position.set(4,12,6); scene.add(key);
+      const floor=new THREE.Mesh(new THREE.PlaneGeometry(24,220), new THREE.MeshLambertMaterial({color:0xe2c36a}));
       floor.rotation.x=-Math.PI/2; floor.position.z=-70; scene.add(floor);
       for(let i=0;i<3;i++){
         const neon=new THREE.Mesh(new THREE.PlaneGeometry(0.14,220), new THREE.MeshBasicMaterial({color:i===1?0xff2e88:0x00f5d4,transparent:true,opacity:0.7}));
@@ -983,7 +1126,7 @@
       initBackground();
     }
     document.addEventListener('pointerdown',initAudio,{once:true});
-    init3D(); setTimeout(resize,100); initMenu();
+    init3D(); paintBikiniWallpaper(); setTimeout(resize,100); initMenu();
   </script>
 </body>
 </html>
