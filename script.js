@@ -1032,7 +1032,11 @@ function sanitizeRunnerName(name){
   return String(name||'Runner').replace(/[^\wÀ-ÿ \-_.]/g,'').trim().slice(0,14)||'Runner';
 }
 function currentRunnerName(){
-  return sanitizeRunnerName(localStorage.getItem('streetdash_final_user')||'Runner');
+  try {
+    return sanitizeRunnerName(localStorage.getItem('streetdash_final_user')||'SpongeRunner');
+  } catch (e) {
+    return 'SpongeRunner';
+  }
 }
 function saveRecentRun(score,coins){
   try{
@@ -1062,7 +1066,7 @@ function readCachedLeaderboard(){
 function writeCachedLeaderboard(list){
   const clean=(list||[]).map(e=>({name:sanitizeRunnerName(e.name),score:Math.max(0,parseInt(e.score,10)||0)}))
     .filter(e=>e.name).sort((a,b)=>b.score-a.score).slice(0,20);
-  localStorage.setItem(LB_CACHE_KEY,JSON.stringify(clean));
+  try { localStorage.setItem(LB_CACHE_KEY,JSON.stringify(clean)); } catch (e) {}
   return clean;
 }
 function mergeLocalScore(list,name,score){
@@ -1183,7 +1187,7 @@ function gameOver(){
   const finalScore=Math.floor(state.score*state.multiplier*(state.doubleScoreActive?1.85:1));
   const hs=parseInt(localStorage.getItem('streetdash_final_hs'),10)||0;
   const best=Math.max(finalScore,hs);
-  if(finalScore>hs) localStorage.setItem('streetdash_final_hs',finalScore);
+  if(finalScore>hs){ try{ localStorage.setItem('streetdash_final_hs',finalScore);}catch(e){} }
   saveRecentRun(finalScore,state.coins);
   const preview=mergeLocalScore(readCachedLeaderboard(),name,best);
   document.getElementById('final-score').textContent=formatScore(finalScore);
@@ -1228,14 +1232,35 @@ document.getElementById('btn-view-leaderboard').addEventListener('click',async()
 document.getElementById('btn-refresh-leaderboard').addEventListener('click',()=>renderLeaderboardTable());
 document.getElementById('btn-back-menu').addEventListener('click',()=>showScreen('start'));
 document.getElementById('pause-btn').addEventListener('click',()=>{ if(!state) return; state.paused=!state.paused; document.getElementById('pause-btn').textContent=state.paused?'▶':'⏸'; });
-document.getElementById('btn-save-account').addEventListener('click',()=>{
-  const val=sanitizeRunnerName(document.getElementById('username-input').value);
-  if(val){ localStorage.setItem('streetdash_final_user',val); initAudio(); initMenu(); }
-});
+function storageGet(key){
+  try { return localStorage.getItem(key); } catch (e) { return null; }
+}
+function storageSet(key, value){
+  try { localStorage.setItem(key, value); } catch (e) {}
+}
+function saveAccountAndEnter(){
+  const input = document.getElementById('username-input');
+  const val = sanitizeRunnerName((input && input.value) || 'SpongeRunner');
+  storageSet('streetdash_final_user', val);
+  initAudio();
+  initMenu();
+}
+const saveBtn = document.getElementById('btn-save-account');
+if (saveBtn) saveBtn.addEventListener('click', saveAccountAndEnter);
+const nameInput = document.getElementById('username-input');
+if (nameInput) {
+  if (!nameInput.value) nameInput.value = 'SpongeRunner';
+  nameInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); saveAccountAndEnter(); }
+  });
+}
 function initMenu(){
-  const user=localStorage.getItem('streetdash_final_user');
-  if(!user) showScreen('register');
-  else { document.getElementById('player-greeting').textContent=user; document.getElementById('hs-value').textContent=formatScore(localStorage.getItem('streetdash_final_hs')||0); showScreen('start'); }
+  const user = storageGet('streetdash_final_user') || 'SpongeRunner';
+  const greet = document.getElementById('player-greeting');
+  const hsEl = document.getElementById('hs-value');
+  if (greet) greet.textContent = user;
+  if (hsEl) hsEl.textContent = formatScore(storageGet('streetdash_final_hs') || 0);
+  showScreen('start');
 }
 function paintBikiniWallpaper(){
   const wp=document.getElementById('bikini-wallpaper');
