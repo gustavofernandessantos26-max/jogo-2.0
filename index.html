@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -5,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#00f5d4">
   <title>STREET DASH — Bob Esponja Cyberpunk</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <link rel="stylesheet" href="style.css">
 
 </head>
@@ -17,8 +17,9 @@
       <h1>Street Dash</h1>
       <h2 style="color:#ffcc00;">Bob Esponja Final</h2>
       <div style="display:flex; flex-direction:column; gap:20px; min-width:340px; margin-bottom:28px;">
-        <input type="text" id="username-input" placeholder="SEU CODINOME" maxlength="14" style="background:rgba(10,1,24,0.9); border:3px solid #ff2e88; padding:18px; color:#fff; font-size:1.35rem; border-radius:8px; text-align:center;">
+        <input type="text" id="username-input" value="SpongeRunner" placeholder="SEU CODINOME" maxlength="14" style="background:rgba(10,1,24,0.9); border:3px solid #ff2e88; padding:18px; color:#fff; font-size:1.35rem; border-radius:8px; text-align:center;">
         <button id="btn-save-account">Conectar à Rede</button>
+        <p style="color:#8a7aa8;font-size:0.95rem;">Pode deixar SpongeRunner e clicar no botão.</p>
       </div>
     </div>
     <div id="screen-start" class="screen">
@@ -106,7 +107,45 @@
       </div>
     </div>
   </div>
-  <script src="script.js"></script>
+  <script>
+    function loadScript(src) {
+      return new Promise(function (resolve, reject) {
+        var s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = reject;
+        document.body.appendChild(s);
+      });
+    }
+    function showBootError(msg) {
+      var box = document.getElementById('screen-register');
+      if (!box) return;
+      var p = document.createElement('p');
+      p.style.cssText = 'color:#ff8ad4;max-width:520px;margin-top:16px;';
+      p.textContent = msg;
+      box.appendChild(p);
+      box.classList.add('active');
+    }
+    (async function boot() {
+      var cdns = [
+        'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
+        'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js',
+        'https://unpkg.com/three@0.128.0/build/three.min.js'
+      ];
+      for (var i = 0; i < cdns.length && typeof THREE === 'undefined'; i++) {
+        try { await loadScript(cdns[i]); } catch (e) {}
+      }
+      if (typeof THREE === 'undefined') {
+        showBootError('Nao deu para carregar o 3D. Conecte a internet e aperte Ctrl+F5.');
+        return;
+      }
+      try {
+        await loadScript('script.js');
+      } catch (e) {
+        showBootError('Faltou o arquivo script.js na mesma pasta do index.html.');
+      }
+    })();
+  </script>
 
 </body>
 </html>
